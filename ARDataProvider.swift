@@ -63,7 +63,9 @@ final class ARProvider: ARDataReceiver {
     let colorCbCrContent = MetalTextureContent()
     let upscaledCoef = MetalTextureContent()
     let downscaledRGB = MetalTextureContent()
+    let colorRGB = MetalTextureContent()
     let upscaledConfidence = MetalTextureContent()
+    
     
     let coefTexture: MTLTexture
     let destDepthTexture: MTLTexture
@@ -85,6 +87,14 @@ final class ARProvider: ARDataReceiver {
             processLastArData()
         }
     }
+    
+    func captureFrame() {
+            framesCaptured += 1
+            print(framesCaptured)
+    }
+    
+    @Published var framesCaptured = 0
+    
     var textureCache: CVMetalTextureCache?
     let metalDevice: MTLDevice
     let guidedFilter: MPSImageGuidedFilter?
@@ -134,6 +144,7 @@ final class ARProvider: ARDataReceiver {
                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .r8Unorm)
             colorRGBTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
+
             colorRGBTextureDownscaled = ARProvider.createTexture(metalDevice: metalDevice, width: upscaledWidth, height: upscaledHeight,
                                                                  usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             colorRGBTextureDownscaledLowRes = ARProvider.createTexture(metalDevice: metalDevice, width: origDepthWidth, height: origDepthHeight,
@@ -155,7 +166,10 @@ final class ARProvider: ARDataReceiver {
         lastArData = arData
         processLastArData()
     }
-    
+    func deleteFrameAtIndex(index: Int) {
+        print(index)
+        return
+    }
     // Copy the AR data to Metal textures and, if the user enables the UI, upscale the depth using a guided filter.
     func processLastArData() {
         colorYContent.texture = lastArData?.colorImage?.texture(withFormat: .r8Unorm, planeIndex: 0, addToCache: textureCache!)!
@@ -167,22 +181,23 @@ final class ARProvider: ARDataReceiver {
             depthContent.texture = lastArData?.depthImage?.texture(withFormat: .r32Float, planeIndex: 0, addToCache: textureCache!)!
             confidenceContent.texture = lastArData?.confidenceImage?.texture(withFormat: .r8Unorm, planeIndex: 0, addToCache: textureCache!)!
         }
-        if isToUpsampleDepth {
-            guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
-            guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
-            // Convert YUV to RGB because the guided filter needs RGB format.
-            computeEncoder.setComputePipelineState(pipelineStateCompute!)
-            computeEncoder.setTexture(colorYContent.texture, index: 0)
-            computeEncoder.setTexture(colorCbCrContent.texture, index: 1)
-            computeEncoder.setTexture(colorRGBTexture, index: 2)
-            let threadgroupSize = MTLSizeMake(pipelineStateCompute!.threadExecutionWidth,
-                                              pipelineStateCompute!.maxTotalThreadsPerThreadgroup / pipelineStateCompute!.threadExecutionWidth, 1)
-            let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
-                                           height: Int(ceil(Float(colorRGBTexture.height) / Float(threadgroupSize.height))),
-                                           depth: 1)
-            computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
-            computeEncoder.endEncoding()
-            
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        // Convert YUV to RGB because the guided filter needs RGB format.
+        computeEncoder.setComputePipelineState(pipelineStateCompute!)
+        computeEncoder.setTexture(colorYContent.texture, index: 0)
+        computeEncoder.setTexture(colorCbCrContent.texture, index: 1)
+        computeEncoder.setTexture(colorRGBTexture, index: 2)
+        let threadgroupSize = MTLSizeMake(pipelineStateCompute!.threadExecutionWidth,
+                                          pipelineStateCompute!.maxTotalThreadsPerThreadgroup / pipelineStateCompute!.threadExecutionWidth, 1)
+        let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
+                                       height: Int(ceil(Float(colorRGBTexture.height) / Float(threadgroupSize.height))),
+                                       depth: 1)
+        computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+        computeEncoder.endEncoding()
+        if !isToUpsampleDepth {
+            cmdBuffer.commit()
+        } else {
             // Downscale the RGB data. Pass in the target resoultion.
             mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: colorRGBTexture,
                                    destinationTexture: colorRGBTextureDownscaled)
@@ -208,6 +223,7 @@ final class ARProvider: ARDataReceiver {
             // Override the original depth texture with the upscaled version.
             depthContent.texture = destDepthTexture
         }
+        colorRGB.texture = colorRGBTexture
     }
 }
 

@@ -78,7 +78,8 @@ fragment half4 planeFragmentShaderDepth(ColorInOut in [[stage_in]], texture2d<fl
     // in smaller environments.
     half val = s.r / 2.5h;
     half4 res = getJetColorsFromNormalizedVal(val);
-    return res;
+    return half4(s[0], s[1], s[2], 1.0h);
+    //return res;
 }
 
 // Shade a texture with confidence levels low, medium, and high to red, green, and blue, respectively.

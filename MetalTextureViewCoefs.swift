@@ -99,6 +99,8 @@ class MTKCoordinator: NSObject, MTKViewDelegate {
         commandBuffer.present(view.currentDrawable!)
         commandBuffer.commit()
     }
+    
+    
 
 }
 //- Tag: MetalTextureView
@@ -120,4 +122,5 @@ struct MetalTextureViewCoefs: UIViewRepresentable {
     func updateUIView(_ uiView: MTKView, context: UIViewRepresentableContext<MetalTextureViewCoefs>) {
         
     }
+    
 }

@@ -3,40 +3,43 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 54;
+	objectVersion = 50;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		AED3761A2757534400C631A2 /* EnvironmentVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = AED376192757534400C631A2 /* EnvironmentVariables.swift */; };
-		E4DF0B0824CF1A1D0024833B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = E4DF0B0724CF1A1D0024833B /* Assets.xcassets */; };
-		E4DF0B1B24CF1A810024833B /* MetalViewSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1224CF1A7F0024833B /* MetalViewSample.swift */; };
-		E4DF0B1C24CF1A810024833B /* MetalTextureViewCoefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1324CF1A7F0024833B /* MetalTextureViewCoefs.swift */; };
-		E4DF0B1D24CF1A810024833B /* MetalTextureViewDepth.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1424CF1A7F0024833B /* MetalTextureViewDepth.swift */; };
-		E4DF0B1E24CF1A810024833B /* ARReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1524CF1A800024833B /* ARReceiver.swift */; };
-		E4DF0B1F24CF1A810024833B /* MetalTextureViewConfidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1624CF1A800024833B /* MetalTextureViewConfidence.swift */; };
-		E4DF0B2024CF1A810024833B /* PointCloudDepthSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1724CF1A800024833B /* PointCloudDepthSample.swift */; };
-		E4DF0B2124CF1A810024833B /* ARDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1824CF1A800024833B /* ARDataProvider.swift */; };
-		E4DF0B2224CF1A810024833B /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1924CF1A800024833B /* shaders.metal */; };
-		E4DF0B2324CF1A810024833B /* MetalPointCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4DF0B1A24CF1A810024833B /* MetalPointCloud.swift */; };
+		723F2AA029CCFBEA002E1B1F /* PointCloudDepthSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9229CCFBE4002E1B1F /* PointCloudDepthSample.swift */; };
+		723F2AA129CCFBEA002E1B1F /* MetalTextureRGBImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9329CCFBE5002E1B1F /* MetalTextureRGBImage.swift */; };
+		723F2AA229CCFBEA002E1B1F /* MetalTextureViewCoefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9429CCFBE5002E1B1F /* MetalTextureViewCoefs.swift */; };
+		723F2AA329CCFBEA002E1B1F /* MetalViewSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9529CCFBE5002E1B1F /* MetalViewSample.swift */; };
+		723F2AA429CCFBEA002E1B1F /* MetalPointCloud.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9629CCFBE6002E1B1F /* MetalPointCloud.swift */; };
+		723F2AA529CCFBEA002E1B1F /* ARReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9729CCFBE6002E1B1F /* ARReceiver.swift */; };
+		723F2AA629CCFBEA002E1B1F /* MetalTextureViewConfidence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9829CCFBE7002E1B1F /* MetalTextureViewConfidence.swift */; };
+		723F2AA829CCFBEA002E1B1F /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9A29CCFBE7002E1B1F /* shaders.metal */; };
+		723F2AA929CCFBEA002E1B1F /* Views+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9B29CCFBE8002E1B1F /* Views+Extensions.swift */; };
+		723F2AAA29CCFBEA002E1B1F /* EnvironmentVariables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9C29CCFBE8002E1B1F /* EnvironmentVariables.swift */; };
+		723F2AAB29CCFBEA002E1B1F /* MetalTextureViewDepth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9D29CCFBE9002E1B1F /* MetalTextureViewDepth.swift */; };
+		723F2AAC29CCFBEA002E1B1F /* ARDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9E29CCFBE9002E1B1F /* ARDataProvider.swift */; };
+		723F2AAD29CCFBEA002E1B1F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		762CB549210F49954E02A215 /* SampleCode.xcconfig */ = {isa = PBXFileReference; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
+		723F2A9229CCFBE4002E1B1F /* PointCloudDepthSample.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PointCloudDepthSample.swift; sourceTree = "<group>"; };
+		723F2A9329CCFBE5002E1B1F /* MetalTextureRGBImage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureRGBImage.swift; sourceTree = "<group>"; };
+		723F2A9429CCFBE5002E1B1F /* MetalTextureViewCoefs.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewCoefs.swift; sourceTree = "<group>"; };
+		723F2A9529CCFBE5002E1B1F /* MetalViewSample.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalViewSample.swift; sourceTree = "<group>"; };
+		723F2A9629CCFBE6002E1B1F /* MetalPointCloud.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalPointCloud.swift; sourceTree = "<group>"; };
+		723F2A9729CCFBE6002E1B1F /* ARReceiver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARReceiver.swift; sourceTree = "<group>"; };
+		723F2A9829CCFBE7002E1B1F /* MetalTextureViewConfidence.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewConfidence.swift; sourceTree = "<group>"; };
+		723F2A9A29CCFBE7002E1B1F /* shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
+		723F2A9B29CCFBE8002E1B1F /* Views+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = "Views+Extensions.swift"; sourceTree = "<group>"; };
+		723F2A9C29CCFBE8002E1B1F /* EnvironmentVariables.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EnvironmentVariables.swift; sourceTree = "<group>"; };
+		723F2A9D29CCFBE9002E1B1F /* MetalTextureViewDepth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewDepth.swift; sourceTree = "<group>"; };
+		723F2A9E29CCFBE9002E1B1F /* ARDataProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARDataProvider.swift; sourceTree = "<group>"; };
+		723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		762CB549210F49954E02A215 /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		862BDBE3A68AAEF29B3782C1 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
-		9F60FDDEE7A7673198CD3F7A /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; path = LICENSE.txt; sourceTree = "<group>"; };
-		AED376192757534400C631A2 /* EnvironmentVariables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnvironmentVariables.swift; sourceTree = "<group>"; };
+		9F60FDDEE7A7673198CD3F7A /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		E4DF0AFE24CF1A1A0024833B /* pointCloudSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pointCloudSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E4DF0B0724CF1A1D0024833B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		E4DF0B0C24CF1A1D0024833B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		E4DF0B1224CF1A7F0024833B /* MetalViewSample.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalViewSample.swift; sourceTree = "<group>"; };
-		E4DF0B1324CF1A7F0024833B /* MetalTextureViewCoefs.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewCoefs.swift; sourceTree = "<group>"; };
-		E4DF0B1424CF1A7F0024833B /* MetalTextureViewDepth.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewDepth.swift; sourceTree = "<group>"; };
-		E4DF0B1524CF1A800024833B /* ARReceiver.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARReceiver.swift; sourceTree = "<group>"; };
-		E4DF0B1624CF1A800024833B /* MetalTextureViewConfidence.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewConfidence.swift; sourceTree = "<group>"; };
-		E4DF0B1724CF1A800024833B /* PointCloudDepthSample.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PointCloudDepthSample.swift; sourceTree = "<group>"; };
-		E4DF0B1824CF1A800024833B /* ARDataProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARDataProvider.swift; sourceTree = "<group>"; };
-		E4DF0B1924CF1A800024833B /* shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
-		E4DF0B1A24CF1A810024833B /* MetalPointCloud.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalPointCloud.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,7 +58,6 @@
 			children = (
 				9F60FDDEE7A7673198CD3F7A /* LICENSE.txt */,
 			);
-			name = LICENSE;
 			path = LICENSE;
 			sourceTree = "<group>";
 		};
@@ -71,7 +73,19 @@
 			isa = PBXGroup;
 			children = (
 				862BDBE3A68AAEF29B3782C1 /* README.md */,
-				E4DF0B0024CF1A1A0024833B /* pointCloudSample */,
+				723F2A9E29CCFBE9002E1B1F /* ARDataProvider.swift */,
+				723F2A9729CCFBE6002E1B1F /* ARReceiver.swift */,
+				723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */,
+				723F2A9C29CCFBE8002E1B1F /* EnvironmentVariables.swift */,
+				723F2A9629CCFBE6002E1B1F /* MetalPointCloud.swift */,
+				723F2A9429CCFBE5002E1B1F /* MetalTextureViewCoefs.swift */,
+				723F2A9329CCFBE5002E1B1F /* MetalTextureRGBImage.swift */,
+				723F2A9829CCFBE7002E1B1F /* MetalTextureViewConfidence.swift */,
+				723F2A9D29CCFBE9002E1B1F /* MetalTextureViewDepth.swift */,
+				723F2A9529CCFBE5002E1B1F /* MetalViewSample.swift */,
+				723F2A9229CCFBE4002E1B1F /* PointCloudDepthSample.swift */,
+				723F2A9A29CCFBE7002E1B1F /* shaders.metal */,
+				723F2A9B29CCFBE8002E1B1F /* Views+Extensions.swift */,
 				E4DF0AFF24CF1A1A0024833B /* Products */,
 				5EFDC8C637DAF513A104E75C /* Configuration */,
 				327985EB5368B1486905D62D /* LICENSE */,
@@ -84,25 +98,6 @@
 				E4DF0AFE24CF1A1A0024833B /* pointCloudSample.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		E4DF0B0024CF1A1A0024833B /* pointCloudSample */ = {
-			isa = PBXGroup;
-			children = (
-				E4DF0B1824CF1A800024833B /* ARDataProvider.swift */,
-				E4DF0B1724CF1A800024833B /* PointCloudDepthSample.swift */,
-				AED376192757534400C631A2 /* EnvironmentVariables.swift */,
-				E4DF0B1524CF1A800024833B /* ARReceiver.swift */,
-				E4DF0B1A24CF1A810024833B /* MetalPointCloud.swift */,
-				E4DF0B1324CF1A7F0024833B /* MetalTextureViewCoefs.swift */,
-				E4DF0B1624CF1A800024833B /* MetalTextureViewConfidence.swift */,
-				E4DF0B1424CF1A7F0024833B /* MetalTextureViewDepth.swift */,
-				E4DF0B1224CF1A7F0024833B /* MetalViewSample.swift */,
-				E4DF0B1924CF1A800024833B /* shaders.metal */,
-				E4DF0B0724CF1A1D0024833B /* Assets.xcassets */,
-				E4DF0B0C24CF1A1D0024833B /* Info.plist */,
-			);
-			path = pointCloudSample;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -164,7 +159,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E4DF0B0824CF1A1D0024833B /* Assets.xcassets in Resources */,
+				723F2AAD29CCFBEA002E1B1F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -175,16 +170,18 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E4DF0B2224CF1A810024833B /* shaders.metal in Sources */,
-				E4DF0B1D24CF1A810024833B /* MetalTextureViewDepth.swift in Sources */,
-				E4DF0B1C24CF1A810024833B /* MetalTextureViewCoefs.swift in Sources */,
-				AED3761A2757534400C631A2 /* EnvironmentVariables.swift in Sources */,
-				E4DF0B2324CF1A810024833B /* MetalPointCloud.swift in Sources */,
-				E4DF0B1F24CF1A810024833B /* MetalTextureViewConfidence.swift in Sources */,
-				E4DF0B1B24CF1A810024833B /* MetalViewSample.swift in Sources */,
-				E4DF0B2124CF1A810024833B /* ARDataProvider.swift in Sources */,
-				E4DF0B1E24CF1A810024833B /* ARReceiver.swift in Sources */,
-				E4DF0B2024CF1A810024833B /* PointCloudDepthSample.swift in Sources */,
+				723F2AA329CCFBEA002E1B1F /* MetalViewSample.swift in Sources */,
+				723F2AA229CCFBEA002E1B1F /* MetalTextureViewCoefs.swift in Sources */,
+				723F2AAA29CCFBEA002E1B1F /* EnvironmentVariables.swift in Sources */,
+				723F2AAB29CCFBEA002E1B1F /* MetalTextureViewDepth.swift in Sources */,
+				723F2AAC29CCFBEA002E1B1F /* ARDataProvider.swift in Sources */,
+				723F2AA629CCFBEA002E1B1F /* MetalTextureViewConfidence.swift in Sources */,
+				723F2AA429CCFBEA002E1B1F /* MetalPointCloud.swift in Sources */,
+				723F2AA029CCFBEA002E1B1F /* PointCloudDepthSample.swift in Sources */,
+				723F2AA129CCFBEA002E1B1F /* MetalTextureRGBImage.swift in Sources */,
+				723F2AA529CCFBEA002E1B1F /* ARReceiver.swift in Sources */,
+				723F2AA829CCFBEA002E1B1F /* shaders.metal in Sources */,
+				723F2AA929CCFBEA002E1B1F /* Views+Extensions.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,7 +314,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = AV6JP9JBU4;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = pointCloudSample/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -342,7 +339,7 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
+				DEVELOPMENT_TEAM = AV6JP9JBU4;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = pointCloudSample/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
