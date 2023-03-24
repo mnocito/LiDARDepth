@@ -89,17 +89,26 @@ struct MetalDepthView: View {
                             HStack {
                                 Text("Frames captured: \(framesCaptured)")
                                 Button(action: {
-                                                arProvider.captureFrame()
+                                                do {
+                                                    try arProvider.captureFrame()
+                                                } catch {
+                                                    
+                                                    print("Can't find light source, skipping frame")
+                                                    framesCaptured = framesCaptured - 1
+                                                }
                                                 framesCaptured += 1
                                             }) {
                                                 Text("Capture Frame")
-                                            }
+                                            }.buttonStyle(.bordered)
                                 Button(action: {
-                                                //arProvider.captureFrame()
                                                 chooseFrames = true
                                             }) {
-                                                Text("Carve captured frames")
-                                            }
+                                                Text("Manage captured frames")
+                                            }.buttonStyle(.bordered)
+                                Button(action: {
+                                            }) {
+                                                Text("Carve chosen frames")
+                                            }.buttonStyle(.bordered)
                             }.padding(.horizontal)
                         }
                     }.navigationViewStyle(StackNavigationViewStyle())
@@ -109,27 +118,26 @@ struct MetalDepthView: View {
                                     chooseFrames = false
                                 }) {
                                     Text("Back")
-                    }
-                    ScrollView {
+                    }.buttonStyle(.bordered)
+                    ScrollView {    
                         ForEach(0..<framesCaptured, id: \.self) { (index) in
                             HStack{
                                 Text("\(index+1)")
                                 Spacer().frame(width: 130)
-                                MetalTextureRGBImage(content: arProvider.colorRGB)
+                                MetalTextureRGBImage(content: arProvider.LightSources[index].texture)
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)), title: "")
                                 //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
                                 Spacer().frame(width: 130)
                                 MetalTextureRGBImage(content: arProvider.ShadowMasks[index].mask)
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)) , title: "")
-                                //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
                                 Button(action: {
                                                 arProvider.deleteFrameAtIndex(index: index)
                                                 framesCaptured = framesCaptured - 1
                                             }) {
                                                 Text("Delete frame")
-                                }
+                                }.buttonStyle(.bordered)
                                 
                             }
                         }

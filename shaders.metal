@@ -224,7 +224,6 @@ kernel void getLightSource(
                                                       )
 {
     float3 rgbResult = colorRGBTexture.read(gid).rgb;
-
     if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {
         atomic_fetch_add_explicit(&x, uint(gid.x), memory_order_relaxed);
         atomic_fetch_add_explicit(&y, uint(gid.y), memory_order_relaxed);
@@ -273,7 +272,7 @@ kernel void getShadowMask(
     // depth is 256x192
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (gid.y > 1440/2 && gray > .0025h && gray < .012h) { // 1085 = 2170 / 2
+    if (/*gid.x > 1920/2 && */gray > 0.07h && gray < 0.1h) { // 1085 = 2170 / 2
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));
@@ -281,3 +280,25 @@ kernel void getShadowMask(
     
 }
 
+constant uint squareSize = 100;
+kernel void getLightSourceTexture (
+                                                      texture2d<half, access::read> colorRGBTexture [[ texture(0) ]],
+                                                      texture2d<half, access::write> outTexture [[ texture(1) ]],
+                                                      constant uint &xCenter [[buffer(0)]],
+                                                      constant uint &yCenter [[buffer(1)]],
+                                                      uint2 gid [[thread_position_in_grid]]
+                                                      )
+{
+    // Convert YUV to RGB inline.
+    half3 rgbResult = colorRGBTexture.read(gid).rgb;
+    //float depth = depthTexture.sample(textureSampler, in.texCoord).r;
+    if ((xCenter != 0 && yCenter != 0) && (gid.x - yCenter < squareSize && gid.x - xCenter > -squareSize) && (gid.y - yCenter < squareSize && gid.y - yCenter > -squareSize)) {
+        outTexture.write(half4(.94h, .77h, .06h, 1.0h), gid.xy);
+    } else {
+        if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {
+             outTexture.write(half4(0, 0, 1.0h, 1.0h), gid.xy);
+        } else {
+             outTexture.write(half4(rgbResult[0], rgbResult[1], rgbResult[2], 1.0h), gid.xy);
+        }
+    }
+}

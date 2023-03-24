@@ -11,7 +11,7 @@ import simd
 import Metal
 
 struct LightSource {
-    var texture: MTLTexture
+    var texture: MetalTextureContent
     var worldcoords: SIMD3<Float>
 }
 
