@@ -215,3 +215,69 @@ kernel void convertYCbCrToRGBA(texture2d<float, access::read> colorYtexture [[te
     colorRGBTexture.write(colorSample, uint2(gid.xy));
 
 }
+kernel void getLightSource(
+                                                      texture2d<float, access::read> colorRGBTexture [[texture(0)]],
+                                                      device atomic_uint &x [[buffer(0)]],
+                                                      device atomic_uint &y [[buffer(1)]],
+                                                      device atomic_uint &counter [[buffer(2)]],
+                                                      uint2 gid [[thread_position_in_grid]]
+                                                      )
+{
+    float3 rgbResult = colorRGBTexture.read(gid).rgb;
+
+    if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {
+        atomic_fetch_add_explicit(&x, uint(gid.x), memory_order_relaxed);
+        atomic_fetch_add_explicit(&y, uint(gid.y), memory_order_relaxed);
+        atomic_fetch_add_explicit(&counter, 1, memory_order_relaxed);
+    }
+}
+
+kernel void getHomogeneousCoords(
+                                                  texture2d<float, access::read> depthTexture [[ texture(0) ]],
+                                                  constant float3x3 &cameraIntrinsics [[ buffer(0) ]],
+                                                  constant uint &xCenter [[buffer(1)]],
+                                                  constant uint &yCenter [[buffer(2)]],
+                                                  device float3 &pointCoords [[buffer(3)]],
+                                                  uint2 gid [[thread_position_in_grid]]
+                                                  )
+{ // ...
+    // assume 1920x1440 x and y coords
+    // depth is 256x192
+    uint2 pos = {xCenter, yCenter}; // convert to correct coords
+    
+    // Get depth in mm.
+    float depth = (depthTexture.read(pos).x) * 1000.0f;
+    
+    
+    // Calculate the vertex's world coordinates.
+    float xrw = ((int)pos.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
+    float yrw = ((int)pos.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
+    float4 xyzw = {xrw, yrw, depth};
+    pointCoords[0] = xyzw[0];
+    pointCoords[1] = xyzw[1];
+    pointCoords[2] = xyzw[2];
+}
+
+// Rec. 709 luma values for grayscale image conversion
+constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722);
+constant half4 white = half4(1.0h, 1.0h, 1.0h, 1.0h);
+constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
+
+kernel void getShadowMask(
+                                                  texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
+                                                  texture2d<half, access::write> shadowMask [[ texture(1) ]],
+                                                  uint2 gid [[thread_position_in_grid]]
+                                                  )
+{ // ...
+    // assume 1920x1440 x and y coords
+    // depth is 256x192
+    half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
+    half gray = dot(rgbResult, kRec709Luma);
+    if (gid.y > 1440/2 && gray > .0025h && gray < .012h) { // 1085 = 2170 / 2
+        shadowMask.write(white, uint2(gid.xy));
+    } else {
+        shadowMask.write(black, uint2(gid.xy));
+    }
+    
+}
+

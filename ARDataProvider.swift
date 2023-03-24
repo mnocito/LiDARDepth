@@ -65,8 +65,11 @@ final class ARProvider: ARDataReceiver {
     let downscaledRGB = MetalTextureContent()
     let colorRGB = MetalTextureContent()
     let upscaledConfidence = MetalTextureContent()
+    let maskContent = MetalTextureContent()
     
-    
+    var LightSources: [LightSource] = []
+    var ShadowMasks: [ShadowMask] = []
+    let maskTexture: MTLTexture
     let coefTexture: MTLTexture
     let destDepthTexture: MTLTexture
     let destConfTexture: MTLTexture
@@ -88,9 +91,30 @@ final class ARProvider: ARDataReceiver {
         }
     }
     
+    func fillMaskTexture() {
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        // Convert YUV to RGB because the guided filter needs RGB format.
+        computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
+        computeEncoder.setTexture(colorRGBTexture, index: 0)
+        computeEncoder.setTexture(maskTexture, index: 1)
+        let threadgroupSize = MTLSizeMake(RGBToMaskPipelineComputeState!.threadExecutionWidth,
+                                          RGBToMaskPipelineComputeState!.maxTotalThreadsPerThreadgroup / RGBToMaskPipelineComputeState!.threadExecutionWidth, 1)
+        let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
+                                       height: Int(ceil(Float(colorRGBTexture.height) / Float(threadgroupSize.height))),
+                                       depth: 1)
+        computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+        computeEncoder.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+    }
+    
     func captureFrame() {
-            framesCaptured += 1
-            print(framesCaptured)
+        framesCaptured += 1
+        fillMaskTexture()
+        let cameraIntrinsics = lastArData!.cameraIntrinsics
+        let mask = ShadowMask(mask: maskContent, cameraIntrinsics: cameraIntrinsics)
+        ShadowMasks.append(mask)
     }
     
     @Published var framesCaptured = 0
@@ -100,7 +124,8 @@ final class ARProvider: ARDataReceiver {
     let guidedFilter: MPSImageGuidedFilter?
     let mpsScaleFilter: MPSImageBilinearScale?
     let commandQueue: MTLCommandQueue
-    let pipelineStateCompute: MTLComputePipelineState?
+    let YCbCrToRGBPipelineComputeState: MTLComputePipelineState?
+    let RGBToMaskPipelineComputeState: MTLComputePipelineState?
     
     // Create an empty texture.
     static func createTexture(metalDevice: MTLDevice, width: Int, height: Int, usage: MTLTextureUsage, pixelFormat: MTLPixelFormat) -> MTLTexture {
@@ -134,8 +159,12 @@ final class ARProvider: ARDataReceiver {
             commandQueue = EnvironmentVariables.shared.metalCommandQueue
             let lib = EnvironmentVariables.shared.metalLibrary
             let convertYUV2RGBFunc = lib.makeFunction(name: "convertYCbCrToRGBA")
-            pipelineStateCompute = try metalDevice.makeComputePipelineState(function: convertYUV2RGBFunc!)
+            YCbCrToRGBPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertYUV2RGBFunc!)
+            let convertRGB2MaskFunc = lib.makeFunction(name: "getShadowMask")
+            RGBToMaskPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2MaskFunc!)
             // Initialize the working textures.
+            maskTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
+                                                                                         usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             coefTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origDepthWidth, height: origDepthHeight,
                                                    usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             destDepthTexture = ARProvider.createTexture(metalDevice: metalDevice, width: upscaledWidth, height: upscaledHeight,
@@ -152,6 +181,8 @@ final class ARProvider: ARDataReceiver {
             upscaledCoef.texture = coefTexture
             upscaledConfidence.texture = destConfTexture
             downscaledRGB.texture = colorRGBTextureDownscaled
+            maskContent.texture = maskTexture
+            
             
             // Set the delegate for ARKit callbacks.
             arReceiver.delegate = self
@@ -184,12 +215,12 @@ final class ARProvider: ARDataReceiver {
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         // Convert YUV to RGB because the guided filter needs RGB format.
-        computeEncoder.setComputePipelineState(pipelineStateCompute!)
+        computeEncoder.setComputePipelineState(YCbCrToRGBPipelineComputeState!)
         computeEncoder.setTexture(colorYContent.texture, index: 0)
         computeEncoder.setTexture(colorCbCrContent.texture, index: 1)
         computeEncoder.setTexture(colorRGBTexture, index: 2)
-        let threadgroupSize = MTLSizeMake(pipelineStateCompute!.threadExecutionWidth,
-                                          pipelineStateCompute!.maxTotalThreadsPerThreadgroup / pipelineStateCompute!.threadExecutionWidth, 1)
+        let threadgroupSize = MTLSizeMake(YCbCrToRGBPipelineComputeState!.threadExecutionWidth,
+                                          YCbCrToRGBPipelineComputeState!.maxTotalThreadsPerThreadgroup / YCbCrToRGBPipelineComputeState!.threadExecutionWidth, 1)
         let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
                                        height: Int(ceil(Float(colorRGBTexture.height) / Float(threadgroupSize.height))),
                                        depth: 1)

@@ -120,7 +120,7 @@ struct MetalDepthView: View {
                                 //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
                                 Spacer().frame(width: 130)
-                                MetalTextureRGBImage(content: arProvider.colorRGB)
+                                MetalTextureRGBImage(content: arProvider.ShadowMasks[index].mask)
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)) , title: "")
                                 //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
