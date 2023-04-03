@@ -154,25 +154,41 @@ final class ARProvider: ARDataReceiver {
         print("xy")
         print(xInt)
         print(yInt)
+        // send coordinate and rgbtexture functions to gpu (messy code right now, sorry)
+        let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { throw MTLCommandBufferError(.invalidResource) }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { throw MTLCommandBufferError(.invalidResource) }
-        computeEncoder.setComputePipelineState(LightSourceXYCoordsToWorldCoordsPipelineComputeState!)
+        computeEncoder.setComputePipelineState(LightSourceRGBToTexturePipelineComputeState!)
         computeEncoder.setTexture(colorRGBTexture, index: 0)
         computeEncoder.setTexture(lightSourceTexture, index:1)
         computeEncoder.setBytes(&xInt, length: MemoryLayout<UInt32>.stride, index: 0)
         computeEncoder.setBytes(&yInt, length: MemoryLayout<UInt32>.stride, index: 1)
-        threadgroupSize = MTLSizeMake(LightSourceXYCoordsToWorldCoordsPipelineComputeState!.threadExecutionWidth,
-                                      LightSourceXYCoordsToWorldCoordsPipelineComputeState!.maxTotalThreadsPerThreadgroup / LightSourceXYCoordsToWorldCoordsPipelineComputeState!.threadExecutionWidth, 1)
+        threadgroupSize = MTLSizeMake(LightSourceRGBToTexturePipelineComputeState!.threadExecutionWidth,
+                                      LightSourceRGBToTexturePipelineComputeState!.maxTotalThreadsPerThreadgroup / LightSourceRGBToTexturePipelineComputeState!.threadExecutionWidth, 1)
         threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
                                        height: Int(ceil(Float(colorRGBTexture.height) / Float(threadgroupSize.height))),
                                        depth: 1)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
+        xInt = UInt32(Double(xInt) / 7.5)
+        yInt = UInt32(Double(yInt) / 7.5)
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { throw MTLCommandBufferError(.invalidResource) }
+        computeEncoder.setComputePipelineState(LightSourceXYCoordsToWorldCoordsPipelineComputeState!)
+        computeEncoder.setTexture(depthContent.texture, index: 0)
+        computeEncoder.setBytes(&lastArData!.cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 0)
+        computeEncoder.setBytes(&xInt, length: MemoryLayout<UInt32>.stride, index: 1)
+        computeEncoder.setBytes(&yInt, length: MemoryLayout<UInt32>.stride, index: 2)
+        computeEncoder.setBuffer(floatBuff, offset: 0, index: 3)
+        threadgroupSize = MTLSizeMake(16, 16, 1)
+        threadgroupCount = MTLSize(width: 1, height: 1, depth: 1)
+        computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+        computeEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
-        let worldCoords = SIMD3<Float>(1.1, 1.2, 1.3)
+        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
         let lightSourceContent = MetalTextureContent()
         lightSourceContent.texture = lightSourceTexture
+        print(worldCoords)
         return LightSource(texture: lightSourceContent, worldcoords: worldCoords)
     }
     
@@ -205,6 +221,7 @@ final class ARProvider: ARDataReceiver {
     let RGBToMaskPipelineComputeState: MTLComputePipelineState?
     let RGBToLightSourceXYCoordsPipelineComputeState: MTLComputePipelineState?
     let LightSourceXYCoordsToWorldCoordsPipelineComputeState: MTLComputePipelineState?
+    let LightSourceRGBToTexturePipelineComputeState: MTLComputePipelineState?
     
     // Create an empty texture.
     static func createTexture(metalDevice: MTLDevice, width: Int, height: Int, usage: MTLTextureUsage, pixelFormat: MTLPixelFormat) -> MTLTexture {
@@ -243,7 +260,9 @@ final class ARProvider: ARDataReceiver {
             RGBToMaskPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2MaskFunc!)
             let convertRGB2LightSourceCoordsFunc = lib.makeFunction(name: "getLightSource")
             RGBToLightSourceXYCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceCoordsFunc!)
-            let convertLightSourceCoords2WorldCoordsFunc = lib.makeFunction(name: "getLightSourceTexture")
+            let convertRGB2LightSourceTexture = lib.makeFunction(name: "getLightSourceTexture")
+            LightSourceRGBToTexturePipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceTexture!)
+            let convertLightSourceCoords2WorldCoordsFunc = lib.makeFunction(name: "getHomogeneousCoords")
             LightSourceXYCoordsToWorldCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertLightSourceCoords2WorldCoordsFunc!)
             // Initialize the working textures.
             maskTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,

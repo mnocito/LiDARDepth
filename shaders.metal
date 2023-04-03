@@ -288,9 +288,12 @@ kernel void getLightSourceTexture (
 {
     half3 rgbResult = colorRGBTexture.read(gid).rgb;
     //float depth = depthTexture.sample(textureSampler, in.texCoord).r;
-    if ((xCenter != 0 && yCenter != 0) && (gid.x - xCenter - .5 > 0) && (gid.y - yCenter - .5 > 100)) {
-    //if ((xCenter != 0 && yCenter != 0) && (gid.x - xCenter -.5 < squareSize && gid.x - xCenter - .5 > -squareSize) && (gid.y - yCenter - .5 < squareSize && gid.y - yCenter - .5 > -squareSize)) {
-        outTexture.write(half4(.94h, .77h, .06h, 1.0h), gid.xy);
+    int pointSize = 15;
+    int2 pointCenter = {int(gid.x) - int(xCenter), int(gid.y) - int(yCenter)};
+    bool withinXRange = pointCenter.x < pointSize && pointCenter.x > -pointSize;
+    bool withinYRange = pointCenter.y < pointSize && pointCenter.y > -pointSize;
+    if ((xCenter != 0 && yCenter != 0) && withinXRange && withinYRange) {
+        outTexture.write(white, gid.xy);
     } else {
         if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {
              outTexture.write(half4(0, 0, 1.0h, 1.0h), gid.xy);
