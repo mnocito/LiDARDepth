@@ -128,10 +128,11 @@ struct MetalDepthView: View {
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)), title: "")
                                 //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
-                                Spacer().frame(width: 130)
+                                Spacer().frame(width: 50)
                                 MetalTextureRGBImage(content: arProvider.ShadowMasks[index].mask)
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)) , title: "")
                                     .rotationEffect(.degrees(-90))
+                                Spacer().frame(width: 50)
                                 Button(action: {
                                                 arProvider.deleteFrameAtIndex(index: index)
                                                 framesCaptured = framesCaptured - 1
@@ -139,7 +140,7 @@ struct MetalDepthView: View {
                                                 Text("Delete frame")
                                 }.buttonStyle(.bordered)
                                 
-                            }
+                            }.id(UUID()) // UUID makes the view refresh on each delete
                         }
                     }.frame(width: 1400)
                 }.padding(.horizontal)

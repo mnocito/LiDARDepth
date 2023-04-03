@@ -283,8 +283,6 @@ final class ARProvider: ARDataReceiver {
         ShadowMasks.remove(at:index)
         LightSources.remove(at:index)
         framesCaptured = framesCaptured - 1
-        print(index)
-        print(ShadowMasks.count)
     }
     // Copy the AR data to Metal textures and, if the user enables the UI, upscale the depth using a guided filter.
     func processLastArData() {
