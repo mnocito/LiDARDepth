@@ -122,6 +122,8 @@ final class ARProvider: ARDataReceiver {
     }
     
     func getLightSourceCoords() throws -> LightSource {
+        let lightSourceTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
+                                                   usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
         let x = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size, options: [])!
         let y = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size, options: [])!
         let counter = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size, options: [])!
@@ -147,8 +149,6 @@ final class ARProvider: ARDataReceiver {
         if (counterInt == 0) {
             throw LightSourceError.lightSourceNotFound
         }
-        let lightSourceTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
-                                                   usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
         xInt = xInt/counterInt
         yInt = yInt/counterInt
         print("xy")
@@ -190,7 +190,7 @@ final class ARProvider: ARDataReceiver {
         let maskContent = MetalTextureContent()
         maskContent.texture = maskTexture
         let cameraIntrinsics = lastArData!.cameraIntrinsics
-        let mask = ShadowMask(mask: maskContent, cameraIntrinsics: cameraIntrinsics)
+        let mask = ShadowMask(mask: maskContent, depthTexture: depthContent.texture!, cameraIntrinsics: cameraIntrinsics)
         ShadowMasks.append(mask)
         
     }
@@ -279,8 +279,12 @@ final class ARProvider: ARDataReceiver {
         processLastArData()
     }
     func deleteFrameAtIndex(index: Int) {
+        print(ShadowMasks.count)
+        ShadowMasks.remove(at:index)
+        LightSources.remove(at:index)
+        framesCaptured = framesCaptured - 1
         print(index)
-        return
+        print(ShadowMasks.count)
     }
     // Copy the AR data to Metal textures and, if the user enables the UI, upscale the depth using a guided filter.
     func processLastArData() {

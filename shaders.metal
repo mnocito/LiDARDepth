@@ -77,7 +77,6 @@ fragment half4 planeFragmentShaderDepth(ColorInOut in [[stage_in]], texture2d<fl
     // sample app uses a value of 2.5 to better distinguish depth
     // in smaller environments.
     half val = s.r / 2.5h;
-    half4 res = getJetColorsFromNormalizedVal(val);
     return half4(s[0], s[1], s[2], 1.0h);
     //return res;
 }
@@ -234,15 +233,15 @@ kernel void getLightSource(
 kernel void getHomogeneousCoords(
                                                   texture2d<float, access::read> depthTexture [[ texture(0) ]],
                                                   constant float3x3 &cameraIntrinsics [[ buffer(0) ]],
-                                                  constant uint &xCenter [[buffer(1)]],
-                                                  constant uint &yCenter [[buffer(2)]],
-                                                  device float3 &pointCoords [[buffer(3)]],
+                                                  constant uint &x [[buffer(1)]],
+                                                  constant uint &y [[buffer(2)]],
+                                                  device float3 &worldCoords [[buffer(3)]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 { // ...
     // assume 1920x1440 x and y coords
     // depth is 256x192
-    uint2 pos = {xCenter, yCenter}; // convert to correct coords
+    uint2 pos = {x, y}; // need to convert to correct coords
     
     // Get depth in mm.
     float depth = (depthTexture.read(pos).x) * 1000.0f;
@@ -252,9 +251,9 @@ kernel void getHomogeneousCoords(
     float xrw = ((int)pos.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
     float yrw = ((int)pos.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
     float4 xyzw = {xrw, yrw, depth};
-    pointCoords[0] = xyzw[0];
-    pointCoords[1] = xyzw[1];
-    pointCoords[2] = xyzw[2];
+    worldCoords[0] = xyzw[0];
+    worldCoords[1] = xyzw[1];
+    worldCoords[2] = xyzw[2];
 }
 
 // Rec. 709 luma values for grayscale image conversion
@@ -267,12 +266,10 @@ kernel void getShadowMask(
                                                   texture2d<half, access::write> shadowMask [[ texture(1) ]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
-{ // ...
-    // assume 1920x1440 x and y coords
-    // depth is 256x192
+{
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (/*gid.x > 1920/2 && */gray > 0.07h && gray < 0.1h) { // 1085 = 2170 / 2
+    if (gid.x > 1920/2 && gray > 0.08h && gray < 0.115h) { //
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));
@@ -289,10 +286,10 @@ kernel void getLightSourceTexture (
                                                       uint2 gid [[thread_position_in_grid]]
                                                       )
 {
-    // Convert YUV to RGB inline.
     half3 rgbResult = colorRGBTexture.read(gid).rgb;
     //float depth = depthTexture.sample(textureSampler, in.texCoord).r;
-    if ((xCenter != 0 && yCenter != 0) && (gid.x - yCenter < squareSize && gid.x - xCenter > -squareSize) && (gid.y - yCenter < squareSize && gid.y - yCenter > -squareSize)) {
+    if ((xCenter != 0 && yCenter != 0) && (gid.x - xCenter - .5 > 0) && (gid.y - yCenter - .5 > 100)) {
+    //if ((xCenter != 0 && yCenter != 0) && (gid.x - xCenter -.5 < squareSize && gid.x - xCenter - .5 > -squareSize) && (gid.y - yCenter - .5 < squareSize && gid.y - yCenter - .5 > -squareSize)) {
         outTexture.write(half4(.94h, .77h, .06h, 1.0h), gid.xy);
     } else {
         if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {

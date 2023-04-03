@@ -17,5 +17,6 @@ struct LightSource {
 
 struct ShadowMask {
     var mask: MetalTextureContent
+    var depthTexture: MTLTexture
     var cameraIntrinsics: matrix_float3x3
 }

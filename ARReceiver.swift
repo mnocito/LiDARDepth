@@ -60,7 +60,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
             arData.depthSmoothImage = frame.smoothedSceneDepth?.depthMap
             arData.confidenceImage = frame.sceneDepth?.confidenceMap
             arData.confidenceSmoothImage = frame.smoothedSceneDepth?.confidenceMap
-            arData.colorImage = frame.capturedImage//ciImage.pixelBuffer//frame.capturedImage
+            arData.colorImage = frame.capturedImage
             arData.cameraIntrinsics = frame.camera.intrinsics
             arData.cameraResolution = frame.camera.imageResolution
             delegate?.onNewARData(arData: arData)

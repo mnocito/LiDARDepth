@@ -123,7 +123,7 @@ struct MetalDepthView: View {
                         ForEach(0..<framesCaptured, id: \.self) { (index) in
                             HStack{
                                 Text("\(index+1)")
-                                Spacer().frame(width: 130)
+                                Spacer().frame(width: 50)
                                 MetalTextureRGBImage(content: arProvider.LightSources[index].texture)
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)), title: "")
                                 //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
