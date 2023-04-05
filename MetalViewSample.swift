@@ -142,7 +142,7 @@ struct MetalDepthView: View {
                                 
                             }.id(UUID()) // UUID makes the view refresh on each delete
                         }
-                    }.frame(width: 1800)
+                    }.frame(width: 1600)
                 }.padding(.horizontal)
             }
         }

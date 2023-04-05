@@ -230,7 +230,7 @@ kernel void getLightSource(
     }
 }
 
-kernel void getHomogeneousCoords(
+kernel void getWorldCoords(
                                                   texture2d<float, access::read> depthTexture [[ texture(0) ]],
                                                   constant float3x3 &cameraIntrinsics [[ buffer(0) ]],
                                                   constant uint &x [[buffer(1)]],
@@ -244,16 +244,13 @@ kernel void getHomogeneousCoords(
     uint2 pos = {x, y}; // need to convert to correct coords
     
     // Get depth in mm.
-    float depth = (depthTexture.read(pos).x) * 1000.0f;
+    float depth = (depthTexture.read(pos).x);
     
     
     // Calculate the vertex's world coordinates.
     float xrw = ((int)pos.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
     float yrw = ((int)pos.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
-    float4 xyzw = {xrw, yrw, depth};
-    worldCoords[0] = xyzw[0];
-    worldCoords[1] = xyzw[1];
-    worldCoords[2] = xyzw[2];
+    worldCoords = {xrw, yrw, -depth}; // need -depth to align w/ coordinate system
 }
 
 // Rec. 709 luma values for grayscale image conversion
@@ -269,7 +266,7 @@ kernel void getShadowMask(
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (gid.x > 1920/2 && gray > 0.08h && gray < 0.115h) { //
+    if (gid.x > 1920/2 && gray > 0.05h && gray < 0.1h) { //
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));

@@ -154,6 +154,14 @@ final class ARProvider: ARDataReceiver {
         print("xy")
         print(xInt)
         print(yInt)
+        var cameraIntrinsics = lastArData!.cameraIntrinsics
+        let scaleRes = simd_float2(x: Float(lastArData!.cameraResolution.width) / Float(origDepthWidth),
+                                   y: Float(lastArData!.cameraResolution.height) / Float(origDepthHeight))
+        cameraIntrinsics[0][0] /= scaleRes.x
+        cameraIntrinsics[1][1] /= scaleRes.y
+
+        cameraIntrinsics[2][0] /= scaleRes.x
+        cameraIntrinsics[2][1] /= scaleRes.y
         // send coordinate and rgbtexture functions to gpu (messy code right now, sorry)
         let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { throw MTLCommandBufferError(.invalidResource) }
@@ -175,7 +183,7 @@ final class ARProvider: ARDataReceiver {
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { throw MTLCommandBufferError(.invalidResource) }
         computeEncoder.setComputePipelineState(LightSourceXYCoordsToWorldCoordsPipelineComputeState!)
         computeEncoder.setTexture(depthContent.texture, index: 0)
-        computeEncoder.setBytes(&lastArData!.cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 0)
+        computeEncoder.setBytes(&cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 0)
         computeEncoder.setBytes(&xInt, length: MemoryLayout<UInt32>.stride, index: 1)
         computeEncoder.setBytes(&yInt, length: MemoryLayout<UInt32>.stride, index: 2)
         computeEncoder.setBuffer(floatBuff, offset: 0, index: 3)
@@ -189,7 +197,7 @@ final class ARProvider: ARDataReceiver {
         let lightSourceContent = MetalTextureContent()
         lightSourceContent.texture = lightSourceTexture
         print(worldCoords)
-        return LightSource(texture: lightSourceContent, worldcoords: worldCoords)
+        return LightSource(texture: lightSourceContent, worldCoords: worldCoords)
     }
     
     func captureFrame() throws {
@@ -262,7 +270,7 @@ final class ARProvider: ARDataReceiver {
             RGBToLightSourceXYCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceCoordsFunc!)
             let convertRGB2LightSourceTexture = lib.makeFunction(name: "getLightSourceTexture")
             LightSourceRGBToTexturePipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceTexture!)
-            let convertLightSourceCoords2WorldCoordsFunc = lib.makeFunction(name: "getHomogeneousCoords")
+            let convertLightSourceCoords2WorldCoordsFunc = lib.makeFunction(name: "getWorldCoords")
             LightSourceXYCoordsToWorldCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertLightSourceCoords2WorldCoordsFunc!)
             // Initialize the working textures.
             maskTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,

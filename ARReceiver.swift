@@ -63,7 +63,9 @@ final class ARReceiver: NSObject, ARSessionDelegate {
             arData.colorImage = frame.capturedImage
             arData.cameraIntrinsics = frame.camera.intrinsics
             arData.cameraResolution = frame.camera.imageResolution
+            
             delegate?.onNewARData(arData: arData)
+            
         }
     }
 }

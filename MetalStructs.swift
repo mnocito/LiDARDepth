@@ -12,11 +12,17 @@ import Metal
 
 struct LightSource {
     var texture: MetalTextureContent
-    var worldcoords: SIMD3<Float>
+    var worldCoords: SIMD3<Float>
 }
 
 struct ShadowMask {
     var mask: MetalTextureContent
     var depthTexture: MTLTexture
     var cameraIntrinsics: matrix_float3x3
+}
+
+struct Voxel {
+    var worldCoords: SIMD3<Float>
+    var ins: UInt32
+    var outs: UInt32
 }
