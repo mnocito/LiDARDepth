@@ -25,6 +25,7 @@ final class ARData {
     var confidenceSmoothImage: CVPixelBuffer?
     var cameraIntrinsics = simd_float3x3()
     var cameraResolution = CGSize()
+    var anchors = [ARMeshAnchor]()
 }
 
 // Configure and run an AR session to provide the app with depth-related AR data.
@@ -32,6 +33,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     var arData = ARData()
     var arSession = ARSession()
     weak var delegate: ARDataReceiver?
+    var isReconstructing = false
     
     // Configure and start the ARSession.
     override init() {
@@ -46,6 +48,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
         // Enable both the `sceneDepth` and `smoothedSceneDepth` frame semantics.
         let config = ARWorldTrackingConfiguration()
         config.frameSemantics = [.sceneDepth, .smoothedSceneDepth]
+        config.sceneReconstruction = .mesh
         arSession.run(config)
     }
     
@@ -56,6 +59,19 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     // Send required data from `ARFrame` to the delegate class via the `onNewARData` callback.
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if(frame.sceneDepth != nil) && (frame.smoothedSceneDepth != nil) {
+            let anchors = frame.anchors.compactMap { $0 as? ARMeshAnchor }
+            if anchors.count > 0 {
+                if !isReconstructing {
+                    isReconstructing = true
+                    print("Reconstructing scene")
+                }
+            } else {
+                if isReconstructing {
+                    isReconstructing = false
+                    print("No longer reconstructing scene")
+                }
+            }
+            arData.anchors = anchors
             arData.depthImage = frame.sceneDepth?.depthMap
             arData.depthSmoothImage = frame.smoothedSceneDepth?.depthMap
             arData.confidenceImage = frame.sceneDepth?.confidenceMap
@@ -63,7 +79,6 @@ final class ARReceiver: NSObject, ARSessionDelegate {
             arData.colorImage = frame.capturedImage
             arData.cameraIntrinsics = frame.camera.intrinsics
             arData.cameraResolution = frame.camera.imageResolution
-            
             delegate?.onNewARData(arData: arData)
             
         }

@@ -17,9 +17,12 @@ final class MetalTextureContent {
     var texture: MTLTexture?
 }
 
-enum LightSourceError: Error {
-    // Throw when an invalid password is entered
+enum IBOError: Error {
+    // Throw when no light source is found
     case lightSourceNotFound
+    
+    // Throw when ARKit isn't in reconstruction mode
+    case ARKitNotReconstructing
 
     // Throw in all other cases
     case unexpected(code: Int)
@@ -147,7 +150,7 @@ final class ARProvider: ARDataReceiver {
         var xInt = x.contents().load(as: UInt32.self)
         var yInt = y.contents().load(as: UInt32.self)
         if (counterInt == 0) {
-            throw LightSourceError.lightSourceNotFound
+            throw IBOError.lightSourceNotFound
         }
         xInt = xInt/counterInt
         yInt = yInt/counterInt
@@ -201,11 +204,15 @@ final class ARProvider: ARDataReceiver {
     }
     
     func captureFrame() throws {
+        if !arReceiver.isReconstructing {
+            throw IBOError.ARKitNotReconstructing
+        }
+        createWorldMesh()
         do {
             let lightSource = try getLightSourceCoords()
             LightSources.append(lightSource)
         } catch {
-            throw LightSourceError.lightSourceNotFound
+            throw IBOError.lightSourceNotFound
         }
         framesCaptured += 1
         maskTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
@@ -300,13 +307,40 @@ final class ARProvider: ARDataReceiver {
         }
     }
     
+    func createWorldMesh() {
+        var totalBufferSize = 0
+        for anchor in lastArData!.anchors {
+            totalBufferSize += anchor.geometry.vertices.count
+        }
+        let vertices = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
+        let normals = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        let metalDevice = metalDevice
+        let kernel = cmdBuffer.makeBlitCommandEncoder()
+        var currentBufferCount = 0
+        var firstBufferCount = 0
+        for anchor in lastArData!.anchors {
+            if firstBufferCount == 0 {
+                firstBufferCount = anchor.geometry.vertices.count
+            }
+            kernel?.copy(from: anchor.geometry.vertices.buffer, sourceOffset: 0, to: vertices, destinationOffset: MemoryLayout<simd_float3>.stride * currentBufferCount, size: MemoryLayout<simd_float3>.stride * anchor.geometry.vertices.count / 4 * 3)
+            kernel?.copy(from: anchor.geometry.normals.buffer, sourceOffset: 0, to: normals, destinationOffset: MemoryLayout<simd_float3>.stride * currentBufferCount, size: MemoryLayout<simd_float3>.stride * anchor.geometry.normals.count / 4 * 3)
+            currentBufferCount += anchor.geometry.vertices.count
+        }
+        kernel?.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+        let ones = [uint](repeating: 1, count: totalBufferSize)
+        let masks = metalDevice.makeBuffer(bytes: ones, length: MemoryLayout<uint>.stride * totalBufferSize, options: [])!
+        
+
+    }
     // Save a reference to the current AR data and process it.
     func onNewARData(arData: ARData) {
         lastArData = arData
         processLastArData()
     }
     func deleteFrameAtIndex(index: Int) {
-        print(ShadowMasks.count)
         ShadowMasks.remove(at:index)
         LightSources.remove(at:index)
         framesCaptured = framesCaptured - 1

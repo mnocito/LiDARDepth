@@ -91,10 +91,14 @@ struct MetalDepthView: View {
                                 Button(action: {
                                                 do {
                                                     try arProvider.captureFrame()
-                                                } catch {
-                                                    
+                                                } catch IBOError.lightSourceNotFound {
                                                     print("Can't find light source, skipping frame")
                                                     framesCaptured = framesCaptured - 1
+                                                } catch IBOError.ARKitNotReconstructing {
+                                                    print("ARKit not currently reconstructing scene, skipping frame")
+                                                    framesCaptured = framesCaptured - 1
+                                                } catch {
+                                                    // shouldn't happen
                                                 }
                                                 framesCaptured += 1
                                             }) {

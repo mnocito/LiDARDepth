@@ -23,6 +23,44 @@ typedef struct
 } ColorInOut;
 
 
+// Represents a three dimensional ray which will be intersected with the scene. The ray type
+// is customized using properties of the MPSRayIntersector.
+struct Ray {
+    // Starting point
+    packed_float3 origin;
+    
+    // Mask which will be bitwise AND-ed with per-triangle masks to filter out certain
+    // intersections. This is used to make the light source visible to the camera but not
+    // to shadow or secondary rays.
+    uint mask;
+    
+    // Direction the ray is traveling
+    packed_float3 direction;
+    
+    // Maximum intersection distance to accept. This is used to prevent shadow rays from
+    // overshooting the light source when checking for visibility.
+    float maxDistance;
+    
+    // The accumulated color along the ray's path so far
+    float3 color;
+};
+
+// Represents an intersection between a ray and the scene, returned by the MPSRayIntersector.
+// The intersection type is customized using properties of the MPSRayIntersector.
+struct Intersection {
+    // The distance from the ray origin to the intersection point. Negative if the ray did not
+    // intersect the scene.
+    float distance;
+    
+    // The index of the intersected primitive (triangle), if any. Undefined if the ray did not
+    // intersect the scene.
+    int primitiveIndex;
+    
+    // The barycentric coordinates of the intersection point, if any. Undefined if the ray did
+    // not intersect the scene.
+    float2 coordinates;
+};
+
 
 // Display a 2D texture.
 vertex ColorInOut planeVertexShader(Vertex in [[stage_in]])
@@ -250,7 +288,7 @@ kernel void getWorldCoords(
     // Calculate the vertex's world coordinates.
     float xrw = ((int)pos.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
     float yrw = ((int)pos.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
-    worldCoords = {xrw, yrw, -depth}; // need -depth to align w/ coordinate system
+    worldCoords = {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
 }
 
 // Rec. 709 luma values for grayscale image conversion
@@ -299,3 +337,5 @@ kernel void getLightSourceTexture (
         }
     }
 }
+
+
