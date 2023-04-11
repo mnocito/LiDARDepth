@@ -6,6 +6,7 @@ View extensions to help with drawing the camera streams correctly on all device 
 */
 
 import SwiftUI
+import ARKit
 
 extension View {
     
@@ -100,5 +101,20 @@ extension UIImage.Orientation {
             case .rightMirrored: self = .rightMirrored
             @unknown default: fatalError()
         }
+    }
+}
+
+extension ARMeshGeometry {
+    func vertex(at index: UInt32) -> SIMD3<Float> {
+        assert(vertices.format == MTLVertexFormat.float3, "Expected three floats (twelve bytes) per vertex.")
+        let vertexPointer = vertices.buffer.contents().advanced(by: vertices.offset + (vertices.stride * Int(index)))
+        let vertex = vertexPointer.assumingMemoryBound(to: SIMD3<Float>.self).pointee
+        return vertex
+    }
+    func norm(at index: UInt32) -> SIMD3<Float> {
+        assert(normals.format == MTLVertexFormat.float3, "Expected three floats (twelve bytes) per vertex.")
+        let normalPointer = normals.buffer.contents().advanced(by: normals.offset + (normals.stride * Int(index)))
+        let normal = normalPointer.assumingMemoryBound(to: SIMD3<Float>.self).pointee
+        return normal
     }
 }

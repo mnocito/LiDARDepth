@@ -26,6 +26,7 @@
 /* Begin PBXFileReference section */
 		720B123429CD27050016AFAC /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Base; path = Base.lproj/Info.plist; sourceTree = "<group>"; };
 		720B123629CD27380016AFAC /* MetalStructs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalStructs.swift; sourceTree = "<group>"; };
+		7235A6CE29E48B8A004A307F /* ShaderTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ShaderTypes.h; sourceTree = "<group>"; };
 		723F2A9229CCFBE4002E1B1F /* PointCloudDepthSample.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PointCloudDepthSample.swift; sourceTree = "<group>"; };
 		723F2A9329CCFBE5002E1B1F /* MetalTextureRGBImage.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureRGBImage.swift; sourceTree = "<group>"; };
 		723F2A9429CCFBE5002E1B1F /* MetalTextureViewCoefs.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalTextureViewCoefs.swift; sourceTree = "<group>"; };
@@ -74,6 +75,7 @@
 		E4DF0AF524CF1A1A0024833B = {
 			isa = PBXGroup;
 			children = (
+				7235A6CE29E48B8A004A307F /* ShaderTypes.h */,
 				720B123629CD27380016AFAC /* MetalStructs.swift */,
 				720B123529CD27050016AFAC /* Info.plist */,
 				727FBD7029CD24AE00A7BFEA /* shaders.metal */,

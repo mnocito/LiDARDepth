@@ -6,9 +6,11 @@ The sample app's Metal shaders.
 */
 
 #include <metal_stdlib>
+#include <simd/simd.h>
+#define RAY_MASK_PRIMARY 3
 
 using namespace metal;
-
+using namespace raytracing;
 
 typedef struct
 {
@@ -22,6 +24,12 @@ typedef struct
     float2 texCoord;
 } ColorInOut;
 
+// Represents a three dimensional ray which will be intersected with the scene. The ray type
+// is customized using properties of the MPSRayIntersector.
+struct Voxel {
+    // Voxel location
+    float3 loc;
+};
 
 // Represents a three dimensional ray which will be intersected with the scene. The ray type
 // is customized using properties of the MPSRayIntersector.
@@ -339,3 +347,55 @@ kernel void getLightSourceTexture (
 }
 
 
+// Generates rays starting from the camera origin and traveling towards the image plane aligned
+// with the camera's coordinate system.
+kernel void rayKernel(uint2 tid [[thread_position_in_grid]],
+                      // Buffers bound on the CPU. Note that 'constant' should be used for small
+                      // read-only data which will be reused across threads. 'device' should be
+                      // used for writable data or data which will only be used by a single thread.
+                      device Ray *rays [[buffer(0)]],
+                      device float3 &startingPos [[buffer(1)]],
+                      device float3 &orig [[buffer(2)]],
+                      device float3 &dir [[buffer(3)]])
+                      //device float3 &voxel)
+{
+    // Since we aligned the thread count to the threadgroup size, the thread index may be out of bounds
+    // of the render target size.
+    // Ray we will produce
+    device Ray &ray = rays[0];
+    ray.origin = startingPos;
+    float3 voxel = float3(0, 0, -0.75f);
+    ray.direction = normalize(voxel - startingPos);
+    
+    // The camera emits primary rays
+    ray.mask = RAY_MASK_PRIMARY;
+        
+    // Don't limit intersection distance
+    ray.maxDistance = INFINITY;
+        
+    ray.color = float3(1.0f, 1.0f, 1.0f);
+    orig = ray.origin;
+    dir = ray.direction;
+}
+
+// Generates rays starting from the camera origin and traveling towards the image plane aligned
+// with the camera's coordinate system.
+kernel void rayTracingKernel(uint2 tid [[thread_position_in_grid]],
+                      // Buffers bound on the CPU. Note that 'constant' should be used for small
+                      // read-only data which will be reused across threads. 'device' should be
+                      // used for writable data or data which will only be used by a single thread.
+                      device Ray *rays [[buffer(0)]],
+                      device Intersection *intersections [[buffer(1)]],
+                      device float3 &finalPos [[buffer(2)]])
+                      //device float3 &voxel)
+{
+
+    // Ray we will produce
+    device Ray &ray = rays[0];
+    device Intersection &intersection = intersections[0];
+    if (intersection.distance == -1) {
+        finalPos = float3(0, 0, 0);
+    } else {
+        finalPos = ray.origin + ray.direction * intersection.distance;
+    }
+}
