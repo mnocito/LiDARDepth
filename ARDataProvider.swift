@@ -167,6 +167,8 @@ final class ARProvider: ARDataReceiver {
 
         cameraIntrinsics[2][0] /= scaleRes.x
         cameraIntrinsics[2][1] /= scaleRes.y
+        print("intr")
+        print(cameraIntrinsics)
         // send coordinate and rgbtexture functions to gpu (messy code right now, sorry)
         let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { throw MTLCommandBufferError(.invalidResource) }
@@ -243,6 +245,7 @@ final class ARProvider: ARDataReceiver {
     let LightSourceRGBToTexturePipelineComputeState: MTLComputePipelineState?
     let rayPipelineComputeState: MTLComputePipelineState?
     let hitRayPipelineComputeState: MTLComputePipelineState?
+    let DepthToMeshPipeline: MTLComputePipelineState?
     
     // Create an empty texture.
     static func createTexture(metalDevice: MTLDevice, width: Int, height: Int, usage: MTLTextureUsage, pixelFormat: MTLPixelFormat) -> MTLTexture {
@@ -291,6 +294,12 @@ final class ARProvider: ARDataReceiver {
             hitRayPipelineComputeState = try metalDevice.makeComputePipelineState(descriptor: hitRayFuncDescriptor,
                                                                    options: [],
                                                                          reflection: nil)
+            let LiDARToVertsDescriptor = MTLComputePipelineDescriptor()
+            LiDARToVertsDescriptor.threadGroupSizeIsMultipleOfThreadExecutionWidth = true
+            LiDARToVertsDescriptor.computeFunction = lib.makeFunction(name: "LiDARToVerts")
+            DepthToMeshPipeline = try metalDevice.makeComputePipelineState(descriptor: LiDARToVertsDescriptor,
+                                                                   options: [],
+                                                                         reflection: nil)
             let convertRGB2LightSourceCoordsFunc = lib.makeFunction(name: "getLightSource")
             RGBToLightSourceXYCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceCoordsFunc!)
             let convertRGB2LightSourceTexture = lib.makeFunction(name: "getLightSourceTexture")
@@ -324,62 +333,92 @@ final class ARProvider: ARDataReceiver {
             fatalError("Unexpected error: \(error).")
         }
     }
+    func sorterForFileIDASC(this:simd_float3, that:simd_float3) -> Bool {
+      return this[2] > that[2]
+    }
     
     func createWorldMesh() {
-        var totalBufferSize = 0
-        var verts = [simd_float3]()
-        let metalDevice = metalDevice
-
-        for anchor in lastArData!.anchors {
-            totalBufferSize += anchor.geometry.vertices.count
-            // use swift for now
-            for v in 0...anchor.geometry.vertices.count-1 {
-                print(anchor.geometry.vertex(at: UInt32(v)))
-                verts.append(anchor.geometry.vertex(at: UInt32(v)))
-        //        norms.append(anchor.geometry.norm(at: UInt32(v)))
-            }
-        }
-        let vertices = metalDevice.makeBuffer(bytes: &verts, length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
+//        var totalBufferSize = 0
+//        var verts = [simd_float3]()
+//        let metalDevice = metalDevice
+//
+//        for anchor in lastArData!.anchors {
+//            totalBufferSize += anchor.geometry.vertices.count
+//            // use swift for now
+//            for v in 0...anchor.geometry.vertices.count-1 {
+//                verts.append(anchor.geometry.vertex(at: UInt32(v)))
+//        //        norms.append(anchor.geometry.norm(at: UInt32(v)))
+//            }
+//        }
+//        print("vertices")
+//        print(verts.sorted(by: sorterForFileIDASC))
+//
+//        let vertices = metalDevice.makeBuffer(bytes: &verts, length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
         //let normals = metalDevice.makeBuffer(bytes: &norms, length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
+        let vertices = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * origDepthWidth * origDepthHeight, options: [])!
+        print("other intr")
+        print(lastArData!.cameraIntrinsics)
+        var cameraIntrinsics = lastArData!.cameraIntrinsics
+        let scaleRes = simd_float2(x: Float(lastArData!.cameraResolution.width) / Float(origDepthWidth),
+                                   y: Float(lastArData!.cameraResolution.height) / Float(origDepthHeight))
+        cameraIntrinsics[0][0] /= scaleRes.x
+        cameraIntrinsics[1][1] /= scaleRes.y
 
-        //cmdBuffer.commit()
-        //cmdBuffer.waitUntilCompleted()
+        cameraIntrinsics[2][0] /= scaleRes.x
+        cameraIntrinsics[2][1] /= scaleRes.y
+        print("other intr")
+        print(cameraIntrinsics)
+        
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
-        let ones = [uint](repeating: 4, count: totalBufferSize)
-        let masks = metalDevice.makeBuffer(bytes: ones, length: MemoryLayout<uint>.stride * totalBufferSize, options: [])!
+        computeEncoder.setComputePipelineState(DepthToMeshPipeline!)
+        computeEncoder.setTexture(depthContent.texture, index: 0)
+        computeEncoder.setBytes(&cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 0)
+        computeEncoder.setBuffer(vertices, offset: 0, index: 1)
+        let threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
+        var threadsHeight = threadsPerThreadgroup.height
+        var threadsWidth = threadsPerThreadgroup.width
+        var threadgroups = MTLSizeMake((origDepthWidth + threadsWidth  - 1) / threadsWidth, (origDepthHeight + threadsHeight - 1) / threadsHeight, 1)
+
+        computeEncoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+        computeEncoder.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+        for v in 0...((origDepthWidth * origDepthHeight) - 1) {
+            let vertexPointer = vertices.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(v)))
+            let vertex = vertexPointer.assumingMemoryBound(to: SIMD3<Float>.self).pointee
+            print(vertex)
+        }
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        let ones = [uint](repeating: 1, count: origDepthWidth * origDepthHeight)
+        let masks = metalDevice.makeBuffer(bytes: ones, length: MemoryLayout<uint>.stride * origDepthWidth * origDepthHeight, options: [])!
         
         let intersector = MPSRayIntersector(device: metalDevice)
         intersector.rayDataType = .originMaskDirectionMaxDistance
         intersector.rayStride = rayStride
         intersector.rayMaskOptions = .primitive
-        intersector.rayMaskOperator = .or // no filtering
+        intersector.rayMaskOperator = .and // no filtering
         
         // Create an acceleration structure from our vertex position data
         let accelerationStructure = MPSTriangleAccelerationStructure(device: metalDevice)
         accelerationStructure.vertexBuffer = vertices
         accelerationStructure.maskBuffer = masks
-        accelerationStructure.triangleCount = totalBufferSize / 3
+        accelerationStructure.triangleCount = Int(origDepthWidth * origDepthHeight / 3)
+        
+        accelerationStructure.vertexStride = MemoryLayout<simd_float3>.stride
         accelerationStructure.rebuild()
 
         let rayBuffer = metalDevice.makeBuffer(length: rayStride * 1, options: .storageModeShared)
         let intersectionBuffer = metalDevice.makeBuffer(length: intersectionStride * 1,
                                                options: .storageModeShared)
 
-        
-        // We will launch a rectangular grid of threads on the GPU to generate the rays. Threads are
-        // launched in groups called "threadgroups". We need to align the number of threads to be a multiple
-        // of the threadgroup size. We indicated when compiling the pipeline that the threadgroup size would
-        // be a multiple of the thread execution width (SIMD group size) which is typically 32 or 64 so 8x8
-        // is a safe threadgroup size which should be small to be supported on most devices. A more advanced
-        // application would choose the threadgroup size dynamically.
-        let threadsPerThreadgroup = MTLSizeMake(8, 8, 1)
-        let threadsHeight = threadsPerThreadgroup.height
-        let threadsWidth = threadsPerThreadgroup.width
-        let threadgroups = MTLSizeMake((1 + threadsWidth  - 1) / threadsWidth, (1 + threadsHeight - 1) / threadsHeight, 1)
+
+        threadsHeight = threadsPerThreadgroup.height
+        threadsWidth = threadsPerThreadgroup.width
+        threadgroups = MTLSizeMake((1 + threadsWidth  - 1) / threadsWidth, (1 + threadsHeight - 1) / threadsHeight, 1)
 
         
-        // Bind buffers needed by the compute pipeline
         computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)
         var origin = LightSources.last!.worldCoords
         let originBuff = metalDevice.makeBuffer(bytes: &origin, length: MemoryLayout<simd_float3>.size, options: [])!
@@ -402,6 +441,9 @@ final class ARProvider: ARDataReceiver {
                                        intersectionBufferOffset: 0,
                                        rayCount: 1,
                                        accelerationStructure: accelerationStructure)
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)

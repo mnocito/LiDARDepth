@@ -60,17 +60,19 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if(frame.sceneDepth != nil) && (frame.smoothedSceneDepth != nil) {
             let anchors = frame.anchors.compactMap { $0 as? ARMeshAnchor }
-            if anchors.count > 0 {
-                if !isReconstructing {
-                    isReconstructing = true
-                    print("Reconstructing scene")
-                }
-            } else {
-                if isReconstructing {
-                    isReconstructing = false
-                    print("No longer reconstructing scene")
-                }
-            }
+            isReconstructing = true
+//            
+//            if anchors.count > 0 {
+//                if !isReconstructing {
+//                    isReconstructing = true
+//                    print("Reconstructing scene")
+//                }
+//            } else {
+//                if isReconstructing {
+//                    isReconstructing = false
+//                    print("No longer reconstructing scene")
+//                }
+//            }
             arData.anchors = anchors
             arData.depthImage = frame.sceneDepth?.depthMap
             arData.depthSmoothImage = frame.smoothedSceneDepth?.depthMap

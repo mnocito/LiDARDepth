@@ -285,7 +285,6 @@ kernel void getWorldCoords(
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 { // ...
-    // assume 1920x1440 x and y coords
     // depth is 256x192
     uint2 pos = {x, y}; // need to convert to correct coords
     
@@ -317,7 +316,6 @@ kernel void getShadowMask(
     } else {
         shadowMask.write(black, uint2(gid.xy));
     }
-    
 }
 
 constant uint squareSize = 100;
@@ -346,6 +344,30 @@ kernel void getLightSourceTexture (
     }
 }
 
+// Generates rays starting from the camera origin and traveling towards the image plane aligned
+// with the camera's coordinate system.
+constant uint depth_width = 192;
+kernel void LiDARToVerts(
+                      texture2d<float, access::read> depthTexture [[ texture(0) ]],
+                      constant float3x3 &cameraIntrinsics [[ buffer(0) ]],
+                      device float3 *verts [[buffer(1)]],
+                      uint2 gid [[thread_position_in_grid]])
+                      //device float3 &voxel)
+{
+    // Since we aligned the thread count to the threadgroup size, the thread index may be out of bounds
+    // of the render target size.
+    // Ray we will produce
+    unsigned int vertIdx = gid.y * depthTexture.get_width() + gid.x;
+    device float3 &vert = verts[vertIdx];
+    // Get depth in mm.
+    float depth = (depthTexture.read(gid).x);
+    
+    // Calculate the vertex's world coordinates.
+    float xrw = ((int)gid.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
+    float yrw = ((int)gid.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
+    vert = {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
+}
+
 
 // Generates rays starting from the camera origin and traveling towards the image plane aligned
 // with the camera's coordinate system.
@@ -363,14 +385,15 @@ kernel void rayKernel(uint2 tid [[thread_position_in_grid]],
     // of the render target size.
     // Ray we will produce
     device Ray &ray = rays[0];
-    ray.origin = startingPos;
     float3 voxel = float3(0, 0, -0.75f);
-    ray.direction = normalize(voxel - startingPos);
+    ray.origin = startingPos;
+    ray.direction = float3(1,0,0);//normalize(voxel - startingPos);
     
     // The camera emits primary rays
     ray.mask = RAY_MASK_PRIMARY;
         
     // Don't limit intersection distance
+    
     ray.maxDistance = INFINITY;
         
     ray.color = float3(1.0f, 1.0f, 1.0f);
