@@ -385,16 +385,16 @@ kernel void rayKernel(uint2 tid [[thread_position_in_grid]],
     // of the render target size.
     // Ray we will produce
     device Ray &ray = rays[0];
-    float3 voxel = float3(0, 0, -0.75f);
-    ray.origin = startingPos;
-    ray.direction = float3(1,0,0);//normalize(voxel - startingPos);
+    float3 voxel = float3(0, 0, -0.95f);
+    ray.direction = normalize(voxel - startingPos);
+    ray.origin = startingPos + 1e-4 * ray.direction;// + float3(1e-4, 0, 0);
     
     // The camera emits primary rays
     ray.mask = RAY_MASK_PRIMARY;
         
     // Don't limit intersection distance
     
-    ray.maxDistance = INFINITY;
+    ray.maxDistance = 5;
         
     ray.color = float3(1.0f, 1.0f, 1.0f);
     orig = ray.origin;
@@ -419,6 +419,6 @@ kernel void rayTracingKernel(uint2 tid [[thread_position_in_grid]],
     if (intersection.distance == -1) {
         finalPos = float3(0, 0, 0);
     } else {
-        finalPos = ray.origin + ray.direction * intersection.distance;
+        finalPos = float3(0, float(intersection.primitiveIndex), intersection.distance);//ray.origin + ray.direction * intersection.distance;
     }
 }

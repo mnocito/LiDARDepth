@@ -155,7 +155,7 @@ final class ARProvider: ARDataReceiver {
         //xInt = xInt/counterInt
         //yInt = yInt/counterInt
         xInt = 391
-        yInt = 409
+        yInt = 509
         print("xy")
         print(xInt)
         print(yInt)
@@ -356,8 +356,7 @@ final class ARProvider: ARDataReceiver {
 //        let vertices = metalDevice.makeBuffer(bytes: &verts, length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
         //let normals = metalDevice.makeBuffer(bytes: &norms, length: MemoryLayout<simd_float3>.stride * totalBufferSize, options: [])!
         let vertices = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * origDepthWidth * origDepthHeight, options: [])!
-        print("other intr")
-        print(lastArData!.cameraIntrinsics)
+
         var cameraIntrinsics = lastArData!.cameraIntrinsics
         let scaleRes = simd_float2(x: Float(lastArData!.cameraResolution.width) / Float(origDepthWidth),
                                    y: Float(lastArData!.cameraResolution.height) / Float(origDepthHeight))
@@ -366,8 +365,6 @@ final class ARProvider: ARDataReceiver {
 
         cameraIntrinsics[2][0] /= scaleRes.x
         cameraIntrinsics[2][1] /= scaleRes.y
-        print("other intr")
-        print(cameraIntrinsics)
         
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
@@ -395,7 +392,7 @@ final class ARProvider: ARDataReceiver {
         let masks = metalDevice.makeBuffer(bytes: ones, length: MemoryLayout<uint>.stride * origDepthWidth * origDepthHeight, options: [])!
         
         let intersector = MPSRayIntersector(device: metalDevice)
-        intersector.rayDataType = .originMaskDirectionMaxDistance
+        intersector.rayDataType = .originDirection
         intersector.rayStride = rayStride
         intersector.rayMaskOptions = .primitive
         intersector.rayMaskOperator = .and // no filtering
