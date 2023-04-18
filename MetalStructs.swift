@@ -19,7 +19,6 @@ struct ShadowMask {
     var mask: MetalTextureContent
     var depthTexture: MTLTexture
     var cameraIntrinsics: matrix_float3x3
-    var numMaskPixels: UInt32
 }
 
 struct Voxel {

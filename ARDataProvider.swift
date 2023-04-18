@@ -106,7 +106,7 @@ final class ARProvider: ARDataReceiver {
         }
     }
     
-    func fillMaskTexture(maskPixelCountBuffer: MTLBuffer) {
+    func fillMaskTexture() {
         let blurredImage = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
                                                    usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
@@ -118,7 +118,6 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
         computeEncoder.setTexture(blurredImage, index: 0)
         computeEncoder.setTexture(maskTexture, index: 1)
-        computeEncoder.setBuffer(maskPixelCountBuffer, offset: 0, index: 0)
         let threadgroupSize = MTLSizeMake(RGBToMaskPipelineComputeState!.threadExecutionWidth,
                                           RGBToMaskPipelineComputeState!.maxTotalThreadsPerThreadgroup / RGBToMaskPipelineComputeState!.threadExecutionWidth, 1)
         let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
@@ -126,6 +125,8 @@ final class ARProvider: ARDataReceiver {
                                        depth: 1)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
+        mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: maskTexture,
+                               destinationTexture: maskTextureDownscaled)
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
     }
@@ -227,15 +228,11 @@ final class ARProvider: ARDataReceiver {
                                                usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
         maskTextureDownscaled = ARProvider.createTexture(metalDevice: metalDevice, width: origDepthWidth, height: origDepthHeight,
                                                usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
-        let maskPixelCountBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride, options: [])!
-        fillMaskTexture(maskPixelCountBuffer: maskPixelCountBuffer)
-        
+        fillMaskTexture()
         let maskContent = MetalTextureContent()
-        maskContent.texture = maskTexture
+        maskContent.texture = maskTextureDownscaled//maskTexture
         let cameraIntrinsics = lastArData!.cameraIntrinsics
-        print("pixcount")
-        print(maskPixelCountBuffer.contents().load(as: UInt32.self))
-        let mask = ShadowMask(mask: maskContent, depthTexture: depthContent.texture!, cameraIntrinsics: cameraIntrinsics, numMaskPixels: maskPixelCountBuffer.contents().load(as: UInt32.self))
+        let mask = ShadowMask(mask: maskContent, depthTexture: depthContent.texture!, cameraIntrinsics: cameraIntrinsics)
         ShadowMasks.append(mask)
         rayTraceLastFrame()
         
@@ -377,13 +374,12 @@ final class ARProvider: ARDataReceiver {
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
 
-        let rayBuffer = metalDevice.makeBuffer(length: rayStride * Int(ShadowMasks.last!.numMaskPixels), options: .storageModeShared) // maybe can be private storage
-        let maskPointsBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * 2 * Int(ShadowMasks.last!.numMaskPixels), options: .storageModeShared)
-
-        let threadsPerThreadgroup = MTLSizeMake(16 * 16, 1, 1)
+        let rayBuffer = metalDevice.makeBuffer(length: rayStride * origDepthWidth * origDepthHeight, options: .storageModeShared) // maybe can be private storage
+        
+        let threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
         let threadsHeight = threadsPerThreadgroup.height
         let threadsWidth = threadsPerThreadgroup.width
-        let threadgroups = MTLSizeMake((Int(ShadowMasks.last!.numMaskPixels) + threadsWidth  - 1) / threadsWidth, 1, 1)
+        let threadgroups = MTLSizeMake((origDepthWidth + threadsWidth  - 1) / threadsWidth, (origDepthHeight + threadsHeight  - 1) / threadsHeight, 1)
 
         // debug, look at ray data
         var origin = LightSources.last!.worldCoords
@@ -391,12 +387,12 @@ final class ARProvider: ARDataReceiver {
         let rayOrig = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         let rayDir = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         computeEncoder.setTexture(ShadowMasks.last!.depthTexture, index: 0)
+        computeEncoder.setTexture(ShadowMasks.last!.mask.texture, index: 1)
         computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)
         computeEncoder.setBytes(&lastWorldCoords, length: MemoryLayout<simd_float3>.stride, index: 1)
-        computeEncoder.setBuffer(maskPointsBuffer, offset: 0, index: 2)
-        computeEncoder.setBytes(&cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 3)
-        computeEncoder.setBuffer(rayOrig, offset: 0, index: 4)
-        computeEncoder.setBuffer(rayDir, offset: 0, index: 5)
+        computeEncoder.setBytes(&cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 2)
+        computeEncoder.setBuffer(rayOrig, offset: 0, index: 3)
+        computeEncoder.setBuffer(rayDir, offset: 0, index: 4)
         computeEncoder.setComputePipelineState(rayPipelineComputeState!)
         // Launch threads
         computeEncoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)

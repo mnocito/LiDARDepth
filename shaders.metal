@@ -332,14 +332,12 @@ constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
                                                   texture2d<half, access::write> shadowMask [[ texture(1) ]],
-                                                  device atomic_uint &maskPoints [[ buffer(0) ]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
     if (gid.x > colorRGBTexture.get_width()/2 && gray > 0.05h && gray < 0.1h) { //
-        atomic_fetch_add_explicit(&maskPoints, 1, memory_order_relaxed);
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));
@@ -392,127 +390,122 @@ kernel void LiDARToVerts(
 
 // Generates rays starting from the startingPos traveling towards the mask pixels
 kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) ]],
+                      texture2d<half, access::read> maskTexture [[ texture(1) ]],
                       device Ray *rays [[buffer(0)]],
                       constant float3 &startingPos [[buffer(1)]],
-                      device uint2 *maskPoints [[buffer(2)]],
-                      constant float3x3 &cameraIntrinsics [[buffer(3)]],
-                      device float3 &orig [[buffer(4)]],
-                      device float3 &dir [[buffer(5)]],
-                      uint gid [[thread_position_in_grid]])
+                      constant float3x3 &cameraIntrinsics [[buffer(2)]],
+                      device float3 &orig [[buffer(3)]],
+                      device float3 &dir [[buffer(4)]],
+                      uint2 gid [[thread_position_in_grid]])
 {
-    device Ray &ray = rays[gid];
-    float3 maskWorldPos = coordsToWorld(cameraIntrinsics, maskPoints[gid], depthTexture.read(maskPoints[gid]).x);
-    ray.origin = startingPos;
-    ray.direction = normalize(maskWorldPos - startingPos);
-    orig = ray.origin;
-    dir = ray.direction;
+    half3 rgbResult = maskTexture.read(gid).rgb;
+    if (rgbResult.r == white.r && rgbResult.g == white.g && rgbResult.b == white.b) {
+        device Ray &ray = rays[gid.x + gid.y * maskTexture.get_width()];
+        float3 maskWorldPos = coordsToWorld(cameraIntrinsics, gid, depthTexture.read(gid).x);
+        ray.origin = startingPos;
+        ray.direction = normalize(maskWorldPos - startingPos);
+        orig = ray.origin;
+        dir = ray.direction;
+    }
 }
 
 // Generates rays starting from the startingPos traveling towards the mask pixels
 kernel void intersect(device Ray *rays [[buffer(0)]],
                       device atomic_uint *ins [[buffer(1)]],
-                      uint gid [[thread_position_in_grid]])
+                      constant uint &width [[buffer(2)]],
+                      uint2 gid [[thread_position_in_grid]])
 {
-    device Ray &ray = rays[gid];
-    float tmin = rayBoxIntersection(ray.origin, ray.direction);
-    
-    float3 vmin = vmin;
-    float3 vmax = vmax;
-    float3 boxSize = boxSize;
-    float3 voxelCount = voxelCount;
+    device Ray &ray = rays[gid.x + gid.y * width];
+    if (ray.origin.x != 0 && ray.origin.y != 0 && ray.origin.z != 0 && ray.direction.x != 0 && ray.direction.y != 0 && ray.direction.z != 0) {
+        float tmin = rayBoxIntersection(ray.origin, ray.direction);
         
-    if (tmin != NAN) {
-        if (tmin < 0) tmin = 0;
+        float3 vmin = vmin;
+        float3 vmax = vmax;
+        float3 boxSize = boxSize;
+        float3 voxelCount = voxelCount;
+            
+        if (tmin != NAN) {
+            if (tmin < 0) tmin = 0;
 
-        float3 start = ray.origin + tmin * ray.direction;
-        
-        float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x)+1;
-        float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.x)+1;
-        float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.x)+1;
-        float tVoxelX = 0;
-        float tVoxelY = 0;
-        float tVoxelZ = 0;
-        float stepX = 0;
-        float stepY = 0;
-        float stepZ = 0;
-        
-        if (x == (voxelCount.x+1)) x = x-1;
-        if (y == (voxelCount.y+1)) y = y-1;
-        if (z == (voxelCount.z+1)) z = z-1;
-        
-        if (ray.direction.x >= 0) {
-            tVoxelX = x / voxelCount.x;
-            stepX = 1;
-        } else {
-            tVoxelX = (x-1) / voxelCount.x;
-            stepX = -1;
-        }
-
-        if (ray.direction.y >= 0) {
-            tVoxelY = y / voxelCount.y;
-            stepY = 1;
-        } else {
-            tVoxelY = (y-1) / voxelCount.y;
-            stepY = -1;
-        }
-        
-        if (ray.direction.z >= 0) {
-            tVoxelZ = z / voxelCount.z;
-            stepZ = 1;
-        } else {
-            tVoxelZ = (z-1) / voxelCount.z;
-            stepZ = -1;
-        }
-                
-        float voxelMaxX  = vmin.x + tVoxelX * boxSize.x;
-        float voxelMaxY  = vmin.y + tVoxelY * boxSize.y;
-        float voxelMaxZ  = vmin.z + tVoxelZ * boxSize.z;
-
-        float tMaxX      = tmin + (voxelMaxX-start.x) / ray.direction.x;
-        float tMaxY      = tmin + (voxelMaxY-start.y) / ray.direction.y;
-        float tMaxZ      = tmin + (voxelMaxZ-start.z) / ray.direction.z;
-        
-        float voxelSizeX = boxSize.x / voxelCount.x;
-        float voxelSizeY = boxSize.y / voxelCount.y;
-        float voxelSizeZ = boxSize.z / voxelCount.z;
-        
-        float tDeltaX    = voxelSizeX / abs(ray.direction.x);
-        float tDeltaY    = voxelSizeY / abs(ray.direction.y);
-        float tDeltaZ    = voxelSizeZ / abs(ray.direction.z);
-                
-        while ((x <= voxelCount.x) && (x >= 1) && (y <= voxelCount.y) && (y>=1) && (z <= voxelCount.z) && (z >= 1)) {
-            // add 1 to value
-            atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
-            if (tMaxX < tMaxY) {
-                if (tMaxX < tMaxZ) {
-                    x = x + stepX;
-                    tMaxX = tMaxX + tDeltaX;
-                } else {
-                    z = z + stepZ;
-                    tMaxZ = tMaxZ + tDeltaZ;
-                }
+            float3 start = ray.origin + tmin * ray.direction;
+            
+            float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x)+1;
+            float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.x)+1;
+            float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.x)+1;
+            float tVoxelX = 0;
+            float tVoxelY = 0;
+            float tVoxelZ = 0;
+            float stepX = 0;
+            float stepY = 0;
+            float stepZ = 0;
+            
+            if (x == (voxelCount.x+1)) x = x-1;
+            if (y == (voxelCount.y+1)) y = y-1;
+            if (z == (voxelCount.z+1)) z = z-1;
+            
+            if (ray.direction.x >= 0) {
+                tVoxelX = x / voxelCount.x;
+                stepX = 1;
             } else {
-                if (tMaxY < tMaxZ) {
-                    y = y + stepY;
-                    tMaxY = tMaxY + tDeltaY;
+                tVoxelX = (x-1) / voxelCount.x;
+                stepX = -1;
+            }
+
+            if (ray.direction.y >= 0) {
+                tVoxelY = y / voxelCount.y;
+                stepY = 1;
+            } else {
+                tVoxelY = (y-1) / voxelCount.y;
+                stepY = -1;
+            }
+            
+            if (ray.direction.z >= 0) {
+                tVoxelZ = z / voxelCount.z;
+                stepZ = 1;
+            } else {
+                tVoxelZ = (z-1) / voxelCount.z;
+                stepZ = -1;
+            }
+                    
+            float voxelMaxX  = vmin.x + tVoxelX * boxSize.x;
+            float voxelMaxY  = vmin.y + tVoxelY * boxSize.y;
+            float voxelMaxZ  = vmin.z + tVoxelZ * boxSize.z;
+
+            float tMaxX      = tmin + (voxelMaxX-start.x) / ray.direction.x;
+            float tMaxY      = tmin + (voxelMaxY-start.y) / ray.direction.y;
+            float tMaxZ      = tmin + (voxelMaxZ-start.z) / ray.direction.z;
+            
+            float voxelSizeX = boxSize.x / voxelCount.x;
+            float voxelSizeY = boxSize.y / voxelCount.y;
+            float voxelSizeZ = boxSize.z / voxelCount.z;
+            
+            float tDeltaX    = voxelSizeX / abs(ray.direction.x);
+            float tDeltaY    = voxelSizeY / abs(ray.direction.y);
+            float tDeltaZ    = voxelSizeZ / abs(ray.direction.z);
+                    
+            while ((x <= voxelCount.x) && (x >= 1) && (y <= voxelCount.y) && (y>=1) && (z <= voxelCount.z) && (z >= 1)) {
+                // add 1 to value
+                atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
+                if (tMaxX < tMaxY) {
+                    if (tMaxX < tMaxZ) {
+                        x = x + stepX;
+                        tMaxX = tMaxX + tDeltaX;
+                    } else {
+                        z = z + stepZ;
+                        tMaxZ = tMaxZ + tDeltaZ;
+                    }
                 } else {
-                    z = z + stepZ;
-                    tMaxZ = tMaxZ + tDeltaZ;
+                    if (tMaxY < tMaxZ) {
+                        y = y + stepY;
+                        tMaxY = tMaxY + tDeltaY;
+                    } else {
+                        z = z + stepZ;
+                        tMaxZ = tMaxZ + tDeltaZ;
+                    }
                 }
             }
         }
-            // set the voxel to 0
-            // volume_out(x,y,z) = 1;
-//          ---------------------------------------------------------- %
-//          check if voxel [x,y,z] contains any intersection with the ray
-//
-//          if ( intersection )
-//               break;
-//           end;
-//          ---------------------------------------------------------- %
-//
     }
-        
 }
 
 //// Generates rays starting from the camera origin and traveling towards the image plane aligned
