@@ -24,51 +24,90 @@ typedef struct
     float2 texCoord;
 } ColorInOut;
 
-// Represents a three dimensional ray which will be intersected with the scene. The ray type
-// is customized using properties of the MPSRayIntersector.
+// Represents a three dimensional voxel.
 struct Voxel {
     // Voxel location
     float3 loc;
+    
+    // insides
+    uint ins;
+    
+    // outsides
+    uint outs;
 };
 
-// Represents a three dimensional ray which will be intersected with the scene. The ray type
-// is customized using properties of the MPSRayIntersector.
+// Represents a three dimensional ray which will be intersected with the scene.
 struct Ray {
     // Starting point
-    packed_float3 origin;
+    float3 origin;
     
-    // Mask which will be bitwise AND-ed with per-triangle masks to filter out certain
-    // intersections. This is used to make the light source visible to the camera but not
-    // to shadow or secondary rays.
-    uint mask;
-    
-    // Direction the ray is traveling
-    packed_float3 direction;
-    
-    // Maximum intersection distance to accept. This is used to prevent shadow rays from
-    // overshooting the light source when checking for visibility.
-    float maxDistance;
-    
-    // The accumulated color along the ray's path so far
-    float3 color;
+    float3 direction;
 };
 
-// Represents an intersection between a ray and the scene, returned by the MPSRayIntersector.
-// The intersection type is customized using properties of the MPSRayIntersector.
-struct Intersection {
-    // The distance from the ray origin to the intersection point. Negative if the ray did not
-    // intersect the scene.
-    float distance;
-    
-    // The index of the intersected primitive (triangle), if any. Undefined if the ray did not
-    // intersect the scene.
-    int primitiveIndex;
-    
-    // The barycentric coordinates of the intersection point, if any. Undefined if the ray did
-    // not intersect the scene.
-    float2 coordinates;
-};
 
+constant float3 vmin = float3(-.3, -.3, -.9);
+
+constant float3 vmax = float3(.3, .3, -.3);
+
+constant float3 boxSize = abs(vmax - vmin);
+
+constant float3 voxelCount = float3(60, 60, 60);
+
+float rayBoxIntersection(float3 origin, float3 direction)
+{
+    float tmin = 0;
+    float tmax = 0;
+    float tymin = 0;
+    float tymax = 0;
+    float tzmin = 0;
+    float tzmax = 0;
+    
+    if (direction.x >= 0) {
+        tmin = (vmin.x - origin.x) / direction.x;
+        tmax = (vmax.x - origin.x) / direction.x;
+    } else {
+        tmin = (vmax.x - origin.x) / direction.x;
+        tmax = (vmin.x - origin.x) / direction.x;
+    }
+  
+    if (direction.y >= 0) {
+        tymin = (vmin.y - origin.y) / direction.y;
+        tymax = (vmax.y - origin.y) / direction.y;
+    } else {
+        tymin = (vmax.y - origin.y) / direction.y;
+        tymax = (vmin.y - origin.y) / direction.y;
+    }
+
+    if ((tmin > tymax) || (tymin > tmax)) {
+        return NAN; // doesn't intersect
+    }
+       
+    if (tymin > tmin) tmin = tymin;
+    
+    if (tymax < tmax) tmax = tymax;
+    
+    if (direction.z >= 0) {
+        tzmin = (vmin.z - origin.z) / direction.z;
+        tzmax = (vmax.z - origin.z) / direction.z;
+    } else {
+        tzmin = (vmax.z - origin.z) / direction.z;
+        tzmax = (vmin.z - origin.z) / direction.z;
+    }
+
+    if ((tmin > tzmax) || (tzmin > tmax)) {
+        return NAN; // doesn't intersect
+    }
+    
+    if (tzmin > tmin) {
+        tmin = tzmin;
+    }
+   
+    if (tzmax < tmax) {
+        tmax = tzmax;
+    }
+    
+    return tmin; // intersects
+}
 
 // Display a 2D texture.
 vertex ColorInOut planeVertexShader(Vertex in [[stage_in]])
@@ -95,20 +134,6 @@ fragment half4 planeFragmentShaderCoefs(ColorInOut in [[stage_in]], texture2d<fl
     half a = length(sample.rgb);
     half b = abs(sample.a);
     return half4(a+b, b, b, 1);
-}
-
-
-// Convert a color value to RGB using a Jet color scheme.
-static half4 getJetColorsFromNormalizedVal(half val) {
-    half4 res ;
-    if(val <= 0.01h)
-        return half4();
-    res.r = 1.5h - fabs(4.0h * val - 3.0h);
-    res.g = 1.5h - fabs(4.0h * val - 2.0h);
-    res.b = 1.5h - fabs(4.0h * val - 1.0h);
-    res.a = 1.0h;
-    res = clamp(res,0.0h,1.0h);
-    return res;
 }
 
 // Shade a texture with depth values using a Jet color scheme.
@@ -156,6 +181,11 @@ typedef struct
     half4 color;
 } ParticleVertexInOut;
 
+float3 coordsToWorld(float3x3 cameraIntrinsics, uint2 xy, float depth) {
+    float xrw = ((int)xy.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
+    float yrw = ((int)xy.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
+    return {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
+}
 
 // Position vertices for the point cloud view. Filters out points with
 // confidence below the selected confidence value and calculates the color of a
@@ -260,6 +290,7 @@ kernel void convertYCbCrToRGBA(texture2d<float, access::read> colorYtexture [[te
     colorRGBTexture.write(colorSample, uint2(gid.xy));
 
 }
+
 kernel void getLightSource(
                                                       texture2d<float, access::read> colorRGBTexture [[texture(0)]],
                                                       device atomic_uint &x [[buffer(0)]],
@@ -290,12 +321,7 @@ kernel void getWorldCoords(
     
     // Get depth in mm.
     float depth = (depthTexture.read(pos).x);
-    
-    
-    // Calculate the vertex's world coordinates.
-    float xrw = ((int)pos.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
-    float yrw = ((int)pos.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
-    worldCoords = {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
+    worldCoords = coordsToWorld(cameraIntrinsics, pos, depth);
 }
 
 // Rec. 709 luma values for grayscale image conversion
@@ -306,12 +332,14 @@ constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
                                                   texture2d<half, access::write> shadowMask [[ texture(1) ]],
+                                                  device atomic_uint &maskPoints [[ buffer(0) ]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (gid.x > 1920/2 && gray > 0.05h && gray < 0.1h) { //
+    if (gid.x > colorRGBTexture.get_width()/2 && gray > 0.05h && gray < 0.1h) { //
+        atomic_fetch_add_explicit(&maskPoints, 1, memory_order_relaxed);
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));
@@ -344,9 +372,6 @@ kernel void getLightSourceTexture (
     }
 }
 
-// Generates rays starting from the camera origin and traveling towards the image plane aligned
-// with the camera's coordinate system.
-constant uint depth_width = 192;
 kernel void LiDARToVerts(
                       texture2d<float, access::read> depthTexture [[ texture(0) ]],
                       constant float3x3 &cameraIntrinsics [[ buffer(0) ]],
@@ -361,64 +386,154 @@ kernel void LiDARToVerts(
     device float3 &vert = verts[vertIdx];
     // Get depth in mm.
     float depth = (depthTexture.read(gid).x);
-    
-    // Calculate the vertex's world coordinates.
-    float xrw = ((int)gid.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
-    float yrw = ((int)gid.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
-    vert = {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
+    vert = coordsToWorld(cameraIntrinsics, gid, depth);
 }
 
 
-// Generates rays starting from the camera origin and traveling towards the image plane aligned
-// with the camera's coordinate system.
-kernel void rayKernel(uint2 tid [[thread_position_in_grid]],
-                      // Buffers bound on the CPU. Note that 'constant' should be used for small
-                      // read-only data which will be reused across threads. 'device' should be
-                      // used for writable data or data which will only be used by a single thread.
+// Generates rays starting from the startingPos traveling towards the mask pixels
+kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) ]],
                       device Ray *rays [[buffer(0)]],
-                      device float3 &startingPos [[buffer(1)]],
-                      device float3 &orig [[buffer(2)]],
-                      device float3 &dir [[buffer(3)]])
-                      //device float3 &voxel)
+                      constant float3 &startingPos [[buffer(1)]],
+                      device uint2 *maskPoints [[buffer(2)]],
+                      constant float3x3 &cameraIntrinsics [[buffer(3)]],
+                      device float3 &orig [[buffer(4)]],
+                      device float3 &dir [[buffer(5)]],
+                      uint gid [[thread_position_in_grid]])
 {
-    // Since we aligned the thread count to the threadgroup size, the thread index may be out of bounds
-    // of the render target size.
-    // Ray we will produce
-    device Ray &ray = rays[0];
-    float3 voxel = float3(0, 0, -0.95f);
-    ray.direction = normalize(voxel - startingPos);
-    ray.origin = startingPos + 1e-4 * ray.direction;// + float3(1e-4, 0, 0);
-    
-    // The camera emits primary rays
-    ray.mask = RAY_MASK_PRIMARY;
-        
-    // Don't limit intersection distance
-    
-    ray.maxDistance = 5;
-        
-    ray.color = float3(1.0f, 1.0f, 1.0f);
+    device Ray &ray = rays[gid];
+    float3 maskWorldPos = coordsToWorld(cameraIntrinsics, maskPoints[gid], depthTexture.read(maskPoints[gid]).x);
+    ray.origin = startingPos;
+    ray.direction = normalize(maskWorldPos - startingPos);
     orig = ray.origin;
     dir = ray.direction;
 }
 
-// Generates rays starting from the camera origin and traveling towards the image plane aligned
-// with the camera's coordinate system.
-kernel void rayTracingKernel(uint2 tid [[thread_position_in_grid]],
-                      // Buffers bound on the CPU. Note that 'constant' should be used for small
-                      // read-only data which will be reused across threads. 'device' should be
-                      // used for writable data or data which will only be used by a single thread.
-                      device Ray *rays [[buffer(0)]],
-                      device Intersection *intersections [[buffer(1)]],
-                      device float3 &finalPos [[buffer(2)]])
-                      //device float3 &voxel)
+// Generates rays starting from the startingPos traveling towards the mask pixels
+kernel void intersect(device Ray *rays [[buffer(0)]],
+                      device atomic_uint *ins [[buffer(1)]],
+                      uint gid [[thread_position_in_grid]])
 {
+    device Ray &ray = rays[gid];
+    float tmin = rayBoxIntersection(ray.origin, ray.direction);
+    
+    float3 vmin = vmin;
+    float3 vmax = vmax;
+    float3 boxSize = boxSize;
+    float3 voxelCount = voxelCount;
+        
+    if (tmin != NAN) {
+        if (tmin < 0) tmin = 0;
 
-    // Ray we will produce
-    device Ray &ray = rays[0];
-    device Intersection &intersection = intersections[0];
-    if (intersection.distance == -1) {
-        finalPos = float3(0, 0, 0);
-    } else {
-        finalPos = float3(0, float(intersection.primitiveIndex), intersection.distance);//ray.origin + ray.direction * intersection.distance;
+        float3 start = ray.origin + tmin * ray.direction;
+        
+        float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x)+1;
+        float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.x)+1;
+        float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.x)+1;
+        float tVoxelX = 0;
+        float tVoxelY = 0;
+        float tVoxelZ = 0;
+        float stepX = 0;
+        float stepY = 0;
+        float stepZ = 0;
+        
+        if (x == (voxelCount.x+1)) x = x-1;
+        if (y == (voxelCount.y+1)) y = y-1;
+        if (z == (voxelCount.z+1)) z = z-1;
+        
+        if (ray.direction.x >= 0) {
+            tVoxelX = x / voxelCount.x;
+            stepX = 1;
+        } else {
+            tVoxelX = (x-1) / voxelCount.x;
+            stepX = -1;
+        }
+
+        if (ray.direction.y >= 0) {
+            tVoxelY = y / voxelCount.y;
+            stepY = 1;
+        } else {
+            tVoxelY = (y-1) / voxelCount.y;
+            stepY = -1;
+        }
+        
+        if (ray.direction.z >= 0) {
+            tVoxelZ = z / voxelCount.z;
+            stepZ = 1;
+        } else {
+            tVoxelZ = (z-1) / voxelCount.z;
+            stepZ = -1;
+        }
+                
+        float voxelMaxX  = vmin.x + tVoxelX * boxSize.x;
+        float voxelMaxY  = vmin.y + tVoxelY * boxSize.y;
+        float voxelMaxZ  = vmin.z + tVoxelZ * boxSize.z;
+
+        float tMaxX      = tmin + (voxelMaxX-start.x) / ray.direction.x;
+        float tMaxY      = tmin + (voxelMaxY-start.y) / ray.direction.y;
+        float tMaxZ      = tmin + (voxelMaxZ-start.z) / ray.direction.z;
+        
+        float voxelSizeX = boxSize.x / voxelCount.x;
+        float voxelSizeY = boxSize.y / voxelCount.y;
+        float voxelSizeZ = boxSize.z / voxelCount.z;
+        
+        float tDeltaX    = voxelSizeX / abs(ray.direction.x);
+        float tDeltaY    = voxelSizeY / abs(ray.direction.y);
+        float tDeltaZ    = voxelSizeZ / abs(ray.direction.z);
+                
+        while ((x <= voxelCount.x) && (x >= 1) && (y <= voxelCount.y) && (y>=1) && (z <= voxelCount.z) && (z >= 1)) {
+            // add 1 to value
+            atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
+            if (tMaxX < tMaxY) {
+                if (tMaxX < tMaxZ) {
+                    x = x + stepX;
+                    tMaxX = tMaxX + tDeltaX;
+                } else {
+                    z = z + stepZ;
+                    tMaxZ = tMaxZ + tDeltaZ;
+                }
+            } else {
+                if (tMaxY < tMaxZ) {
+                    y = y + stepY;
+                    tMaxY = tMaxY + tDeltaY;
+                } else {
+                    z = z + stepZ;
+                    tMaxZ = tMaxZ + tDeltaZ;
+                }
+            }
+        }
+            // set the voxel to 0
+            // volume_out(x,y,z) = 1;
+//          ---------------------------------------------------------- %
+//          check if voxel [x,y,z] contains any intersection with the ray
+//
+//          if ( intersection )
+//               break;
+//           end;
+//          ---------------------------------------------------------- %
+//
     }
+        
 }
+
+//// Generates rays starting from the camera origin and traveling towards the image plane aligned
+//// with the camera's coordinate system.
+//kernel void rayTracingKernel(uint2 tid [[thread_position_in_grid]],
+//                      // Buffers bound on the CPU. Note that 'constant' should be used for small
+//                      // read-only data which will be reused across threads. 'device' should be
+//                      // used for writable data or data which will only be used by a single thread.
+//                      device Ray *rays [[buffer(0)]],
+//                      device Intersection *intersections [[buffer(1)]],
+//                      device float3 &finalPos [[buffer(2)]])
+//                      //device float3 &voxel)
+//{
+//
+//    // Ray we will produce
+//    device Ray &ray = rays[0];
+//    device Intersection &intersection = intersections[0];
+//    if (intersection.distance == -1) {
+//        finalPos = float3(0, 0, 0);
+//    } else {
+//        finalPos = ray.origin + ray.direction * intersection.distance; //float3(0, float(intersection.primitiveIndex), intersection.distance);
+//        finalPos[0] = intersection.distance;
+//    }
+//}
