@@ -55,7 +55,7 @@ final class ARProvider: ARDataReceiver {
     let upscaledHeight = 760
 
     // Set the original depth size.
-    let origDepthWidth = 256
+    var origDepthWidth = 256
     let origDepthHeight = 192
 
     // Set the original color size.
@@ -63,10 +63,10 @@ final class ARProvider: ARDataReceiver {
     let origColorHeight = 1440
     
     // Set voxel boundaries.
-    let voxelsPerSide = 80
+    let voxelsPerSide = 60
     let voxelSize = 0.01 // 0.01 = 1cm
-    let voxelStartX = -0.4
-    let voxelStartY = -0.4
+    let voxelStartX = -0.3
+    let voxelStartY = -0.3
     let voxelStartZ = -0.3
     
     let arReceiver = ARReceiver()
@@ -87,6 +87,8 @@ final class ARProvider: ARDataReceiver {
     var maskTextureDownscaled: MTLTexture
     let coefTexture: MTLTexture
     let destDepthTexture: MTLTexture
+    let voxelIns: MTLBuffer
+    let voxelOuts: MTLBuffer
     let destConfTexture: MTLTexture
     let colorRGBTexture: MTLTexture
     let colorRGBTextureDownscaled: MTLTexture
@@ -253,7 +255,6 @@ final class ARProvider: ARDataReceiver {
     let LightSourceRGBToTexturePipelineComputeState: MTLComputePipelineState?
     let rayPipelineComputeState: MTLComputePipelineState?
     let intersectPipeline: MTLComputePipelineState?
-    let DepthToMeshPipeline: MTLComputePipelineState?
     
     // Create an empty texture.
     static func createTexture(metalDevice: MTLDevice, width: Int, height: Int, usage: MTLTextureUsage, pixelFormat: MTLPixelFormat) -> MTLTexture {
@@ -312,12 +313,6 @@ final class ARProvider: ARDataReceiver {
             intersectPipeline = try metalDevice.makeComputePipelineState(descriptor: intersectDescriptor,
                                                                    options: [],
                                                                          reflection: nil)
-            let LiDARToVertsDescriptor = MTLComputePipelineDescriptor()
-            LiDARToVertsDescriptor.threadGroupSizeIsMultipleOfThreadExecutionWidth = true
-            LiDARToVertsDescriptor.computeFunction = lib.makeFunction(name: "LiDARToVerts")
-            DepthToMeshPipeline = try metalDevice.makeComputePipelineState(descriptor: LiDARToVertsDescriptor,
-                                                                   options: [],
-                                                                         reflection: nil)
             let convertRGB2LightSourceCoordsFunc = lib.makeFunction(name: "getLightSource")
             RGBToLightSourceXYCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceCoordsFunc!)
             let convertRGB2LightSourceTexture = lib.makeFunction(name: "getLightSourceTexture")
@@ -345,7 +340,8 @@ final class ARProvider: ARDataReceiver {
             upscaledCoef.texture = coefTexture
             upscaledConfidence.texture = destConfTexture
             downscaledRGB.texture = colorRGBTextureDownscaled
-
+            voxelIns = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
+            voxelOuts = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
             // Set the delegate for ARKit callbacks.
             arReceiver.delegate = self
             
@@ -354,9 +350,6 @@ final class ARProvider: ARDataReceiver {
         }
         //initVoxelArray()
         //print(Voxels)
-    }
-    func sorterForFileIDASC(this:simd_float3, that:simd_float3) -> Bool {
-      return this[2] > that[2]
     }
     
     func rayTraceLastFrame() {
@@ -369,6 +362,8 @@ final class ARProvider: ARDataReceiver {
 
         cameraIntrinsics[2][0] /= scaleRes.x
         cameraIntrinsics[2][1] /= scaleRes.y
+        print("intr")
+        print(cameraIntrinsics)
         
         // create intersector/acceleration structure
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
@@ -376,10 +371,10 @@ final class ARProvider: ARDataReceiver {
 
         let rayBuffer = metalDevice.makeBuffer(length: rayStride * origDepthWidth * origDepthHeight, options: .storageModeShared) // maybe can be private storage
         
-        let threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
-        let threadsHeight = threadsPerThreadgroup.height
-        let threadsWidth = threadsPerThreadgroup.width
-        let threadgroups = MTLSizeMake((origDepthWidth + threadsWidth  - 1) / threadsWidth, (origDepthHeight + threadsHeight  - 1) / threadsHeight, 1)
+        var threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
+        var threadsHeight = threadsPerThreadgroup.height
+        var threadsWidth = threadsPerThreadgroup.width
+        var threadgroups = MTLSizeMake((origDepthWidth + threadsWidth  - 1) / threadsWidth, (origDepthHeight + threadsHeight  - 1) / threadsHeight, 1)
 
         // debug, look at ray data
         var origin = LightSources.last!.worldCoords
@@ -403,7 +398,31 @@ final class ARProvider: ARDataReceiver {
         print("origin, dir")
         print(rayOrig.contents().load(as: simd_float3.self))
         print(rayDir.contents().load(as: simd_float3.self))
+        
+        // do intersection
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        
+        threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
+        threadsHeight = threadsPerThreadgroup.height
+        threadsWidth = threadsPerThreadgroup.width
+        threadgroups = MTLSizeMake((origDepthWidth + threadsWidth  - 1) / threadsWidth, (origDepthHeight + threadsHeight  - 1) / threadsHeight, 1)
 
+        // debug, look at ray data
+        computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(voxelIns, offset: 0, index: 1)
+        computeEncoder.setBytes(&origDepthWidth, length: MemoryLayout<UInt32>.stride, index: 2)
+        computeEncoder.setComputePipelineState(intersectPipeline!)
+        // Launch threads
+        computeEncoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+        // End the encoder
+        computeEncoder.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+        print("done")
+        print(voxelIns.contents().load(as: UInt32.self))
+
+        
     }
     // Save a reference to the current AR data and process it.
     func onNewARData(arData: ARData) {

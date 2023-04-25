@@ -45,13 +45,13 @@ struct Ray {
 };
 
 
-constant float3 vmin = float3(-.3, -.3, -.9);
+constant float3 vmin = float3(-.15, -.15, .3);
 
-constant float3 vmax = float3(.3, .3, -.3);
+constant float3 vmax = float3(.15, .15, .6);
 
 constant float3 boxSize = abs(vmax - vmin);
 
-constant float3 voxelCount = float3(60, 60, 60);
+constant float3 voxelCount = float3(30, 30, 30);
 
 float rayBoxIntersection(float3 origin, float3 direction)
 {
@@ -184,7 +184,8 @@ typedef struct
 float3 coordsToWorld(float3x3 cameraIntrinsics, uint2 xy, float depth) {
     float xrw = ((int)xy.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
     float yrw = ((int)xy.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
-    return {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
+    return {xrw, yrw, depth}; // make depth positive--easier with algorithm?
+    //return {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
 }
 
 // Position vertices for the point cloud view. Filters out points with
@@ -337,11 +338,16 @@ kernel void getShadowMask(
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (gid.x > colorRGBTexture.get_width()/2 && gray > 0.05h && gray < 0.1h) { //
+    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 610 && gid.y <830) {
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));
     }
+//    if (gid.x > colorRGBTexture.get_width()/2 && gray > 0.05h && gray < 0.1h) { //
+//        shadowMask.write(white, uint2(gid.xy));
+//    } else {
+//        shadowMask.write(black, uint2(gid.xy));
+//    }
 }
 
 constant uint squareSize = 100;
@@ -418,20 +424,20 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
     device Ray &ray = rays[gid.x + gid.y * width];
     if (ray.origin.x != 0 && ray.origin.y != 0 && ray.origin.z != 0 && ray.direction.x != 0 && ray.direction.y != 0 && ray.direction.z != 0) {
         float tmin = rayBoxIntersection(ray.origin, ray.direction);
-        
+ //       atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
         float3 vmin = vmin;
         float3 vmax = vmax;
         float3 boxSize = boxSize;
         float3 voxelCount = voxelCount;
             
-        if (tmin != NAN) {
+        if (!isnan(tmin)) {
             if (tmin < 0) tmin = 0;
 
             float3 start = ray.origin + tmin * ray.direction;
             
-            float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x)+1;
-            float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.x)+1;
-            float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.x)+1;
+            float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x);
+            float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.x);
+            float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.x);
             float tVoxelX = 0;
             float tVoxelY = 0;
             float tVoxelZ = 0;
@@ -439,9 +445,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
             float stepY = 0;
             float stepZ = 0;
             
-            if (x == (voxelCount.x+1)) x = x-1;
-            if (y == (voxelCount.y+1)) y = y-1;
-            if (z == (voxelCount.z+1)) z = z-1;
+            if (x == (voxelCount.x)) x = x-1;
+            if (y == (voxelCount.y)) y = y-1;
+            if (z == (voxelCount.z)) z = z-1;
             
             if (ray.direction.x >= 0) {
                 tVoxelX = x / voxelCount.x;
@@ -483,8 +489,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
             float tDeltaY    = voxelSizeY / abs(ray.direction.y);
             float tDeltaZ    = voxelSizeZ / abs(ray.direction.z);
                     
-            while ((x <= voxelCount.x) && (x >= 1) && (y <= voxelCount.y) && (y>=1) && (z <= voxelCount.z) && (z >= 1)) {
+            while ((x < voxelCount.x) && (x >= 0) && (y < voxelCount.y) && (y >= 0) && (z < voxelCount.z) && (z >= 0)) {
                 // add 1 to value
+                atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
                 atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
                 if (tMaxX < tMaxY) {
                     if (tMaxX < tMaxZ) {
