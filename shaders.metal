@@ -45,13 +45,13 @@ struct Ray {
 };
 
 
-constant float3 vmin = float3(-.15, -.15, .3);
+constant float3 vmin = float3(-0.15f, -0.15f, 0.3f);
 
-constant float3 vmax = float3(.15, .15, .6);
+constant float3 vmax = float3(0.15f, 0.15f, 0.6f);
 
 constant float3 boxSize = abs(vmax - vmin);
 
-constant float3 voxelCount = float3(30, 30, 30);
+constant float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
 
 float rayBoxIntersection(float3 origin, float3 direction)
 {
@@ -184,7 +184,7 @@ typedef struct
 float3 coordsToWorld(float3x3 cameraIntrinsics, uint2 xy, float depth) {
     float xrw = ((int)xy.x - cameraIntrinsics[2][0]) * depth / cameraIntrinsics[0][0];
     float yrw = ((int)xy.y - cameraIntrinsics[2][1]) * depth / cameraIntrinsics[1][1];
-    return {xrw, yrw, depth}; // make depth positive--easier with algorithm?
+    return {xrw, -yrw, depth}; // make depth positive--easier with algorithm?
     //return {xrw, -yrw, -depth}; // need -y, -z to align w/ arkit coordinate system
 }
 
@@ -338,7 +338,7 @@ kernel void getShadowMask(
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 610 && gid.y <830) {
+    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 509 && gid.y < 520) {
         shadowMask.write(white, uint2(gid.xy));
     } else {
         shadowMask.write(black, uint2(gid.xy));
@@ -417,20 +417,26 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
 
 // Generates rays starting from the startingPos traveling towards the mask pixels
 kernel void intersect(device Ray *rays [[buffer(0)]],
+                      //device atomic_uint *ins [[buffer(1)]],
                       device atomic_uint *ins [[buffer(1)]],
                       constant uint &width [[buffer(2)]],
                       uint2 gid [[thread_position_in_grid]])
 {
     device Ray &ray = rays[gid.x + gid.y * width];
-    if (ray.origin.x != 0 && ray.origin.y != 0 && ray.origin.z != 0 && ray.direction.x != 0 && ray.direction.y != 0 && ray.direction.z != 0) {
+    if (ray.origin.x != 0.0f && ray.origin.y != 0.0f && ray.origin.z != 0.0f && ray.direction.x != 0.0f && ray.direction.y != 0.0f && ray.direction.z != 0.0f) {
         float tmin = rayBoxIntersection(ray.origin, ray.direction);
- //       atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
-        float3 vmin = vmin;
-        float3 vmax = vmax;
-        float3 boxSize = boxSize;
-        float3 voxelCount = voxelCount;
-            
+
         if (!isnan(tmin)) {
+            
+            float3 vmin = float3(-0.15f, -0.15f, 0.3f);
+
+            float3 vmax = float3(0.15f, 0.15f, 0.6f);
+
+            float3 boxSize = abs(vmax - vmin);
+
+            float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+            
+            //ins[0] = (vmin.x - ray.origin.x) / ray.direction.x;
             if (tmin < 0) tmin = 0;
 
             float3 start = ray.origin + tmin * ray.direction;
@@ -491,7 +497,8 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
                     
             while ((x < voxelCount.x) && (x >= 0) && (y < voxelCount.y) && (y >= 0) && (z < voxelCount.z) && (z >= 0)) {
                 // add 1 to value
-                atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
+                //ins[0] = 5;
+                //atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
                 atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
                 if (tMaxX < tMaxY) {
                     if (tMaxX < tMaxZ) {

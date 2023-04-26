@@ -421,6 +421,14 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.waitUntilCompleted()
         print("done")
         print(voxelIns.contents().load(as: UInt32.self))
+        for i in 0..<(30*30*30) {
+            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
+            if vert != 0 {
+                print("I: " + String(i))
+                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
+            }
+        }
 
         
     }
