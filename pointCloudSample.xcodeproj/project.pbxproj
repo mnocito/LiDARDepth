@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		7205674C29F8B6E0001D16CB /* ship.scn in Resources */ = {isa = PBXBuildFile; fileRef = 7205674B29F8B6E0001D16CB /* ship.scn */; };
+		7205674E29F8B7E7001D16CB /* DisplayObjectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7205674D29F8B7E7001D16CB /* DisplayObjectView.swift */; };
 		720B123729CD27380016AFAC /* MetalStructs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 720B123629CD27380016AFAC /* MetalStructs.swift */; };
 		723F2AA029CCFBEA002E1B1F /* PointCloudDepthSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9229CCFBE4002E1B1F /* PointCloudDepthSample.swift */; };
 		723F2AA129CCFBEA002E1B1F /* MetalTextureRGBImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9329CCFBE5002E1B1F /* MetalTextureRGBImage.swift */; };
@@ -24,6 +26,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		7205674B29F8B6E0001D16CB /* ship.scn */ = {isa = PBXFileReference; lastKnownFileType = file.bplist; path = ship.scn; sourceTree = "<group>"; };
+		7205674D29F8B7E7001D16CB /* DisplayObjectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DisplayObjectView.swift; sourceTree = "<group>"; };
 		720B123429CD27050016AFAC /* Base */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = Base; path = Base.lproj/Info.plist; sourceTree = "<group>"; };
 		720B123629CD27380016AFAC /* MetalStructs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalStructs.swift; sourceTree = "<group>"; };
 		7235A6CE29E48B8A004A307F /* ShaderTypes.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ShaderTypes.h; sourceTree = "<group>"; };
@@ -75,6 +79,8 @@
 		E4DF0AF524CF1A1A0024833B = {
 			isa = PBXGroup;
 			children = (
+				7205674D29F8B7E7001D16CB /* DisplayObjectView.swift */,
+				7205674B29F8B6E0001D16CB /* ship.scn */,
 				7235A6CE29E48B8A004A307F /* ShaderTypes.h */,
 				720B123629CD27380016AFAC /* MetalStructs.swift */,
 				720B123529CD27050016AFAC /* Info.plist */,
@@ -164,6 +170,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7205674C29F8B6E0001D16CB /* ship.scn in Resources */,
 				723F2AAD29CCFBEA002E1B1F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -179,6 +186,7 @@
 				720B123729CD27380016AFAC /* MetalStructs.swift in Sources */,
 				723F2AA229CCFBEA002E1B1F /* MetalTextureViewCoefs.swift in Sources */,
 				723F2AAA29CCFBEA002E1B1F /* EnvironmentVariables.swift in Sources */,
+				7205674E29F8B7E7001D16CB /* DisplayObjectView.swift in Sources */,
 				723F2AAB29CCFBEA002E1B1F /* MetalTextureViewDepth.swift in Sources */,
 				723F2AAC29CCFBEA002E1B1F /* ARDataProvider.swift in Sources */,
 				723F2AA629CCFBEA002E1B1F /* MetalTextureViewConfidence.swift in Sources */,

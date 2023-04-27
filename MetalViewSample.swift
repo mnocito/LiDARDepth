@@ -9,6 +9,7 @@ import Foundation
 import SwiftUI
 import MetalKit
 import ARKit
+import SceneKit
 
 // Add a title to a view that enlarges the view to full screen on tap.
 struct Texture<T: View>: ViewModifier {
@@ -66,16 +67,18 @@ struct MetalDepthView: View {
     @State var isShowSmoothDepth = false
     @State var isArPaused = false
     @State var chooseFrames = false
+    @State var showObject = false
     @State private var scaleMovement: Float = 1.5
     
     var confLevels = ["🔵🟢🔴", "🔵🟢", "🔵"]
     
     
     var body: some View {
+        //SceneView(scene: SCNScene(named: "ship.scn"), options: [.allowsCameraControl,.autoenablesDefaultLighting]).frame(width: 500)
         if !ARWorldTrackingConfiguration.supportsFrameSemantics([.sceneDepth, .smoothedSceneDepth]) {
             Text("Unsupported Device: This app requires the LiDAR Scanner to access the scene's depth.")
         } else {
-            if !chooseFrames {
+            if !chooseFrames && !showObject {
                 NavigationView{
                         VStack() {
                             HStack() {
@@ -110,13 +113,21 @@ struct MetalDepthView: View {
                                                 Text("Manage captured frames")
                                             }.buttonStyle(.bordered)
                                 Button(action: {
+                                                showObject = true
                                             }) {
                                                 Text("Carve chosen frames")
                                             }.buttonStyle(.bordered)
                             }.padding(.horizontal)
                         }
                     }.navigationViewStyle(StackNavigationViewStyle())
-            } else {
+            } else if showObject {
+                Button(action: {
+                                showObject = false
+                            }) {
+                                Text("Back")
+                            }.buttonStyle(.bordered)
+                DisplayObjectView(session: arProvider.arReceiver.arSession)
+            }else {
                 VStack {
                     Button(action: {
                                     chooseFrames = false
