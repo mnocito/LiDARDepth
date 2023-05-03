@@ -5,10 +5,20 @@ import ARKit
 struct DisplayObjectView : UIViewRepresentable {
     let scene = SCNScene()
     var arSession: ARSession!
-    //var objectBuffer: MTLBuffer!
+    var vertBuffer: MTLBuffer!
+    var indBuffer: MTLBuffer!
+    let vertCount = 30 * 30 * 30 // TODO: not make magic number later
+    let vertsPerVoxel = 8
+    let indicesPerVoxel = 36
+    let numVerts: Int!
+    let numIndices: Int!
     
-    init(session: ARSession!) {
+    init(session: ARSession!, vBuffer: MTLBuffer!, iBuffer: MTLBuffer!) {
         arSession = session
+        vertBuffer = vBuffer
+        indBuffer = iBuffer
+        numVerts = vertCount * vertsPerVoxel
+        numIndices = vertCount * indicesPerVoxel
     }
 
     func makeUIView(context: Context) -> SCNView {
@@ -26,67 +36,72 @@ struct DisplayObjectView : UIViewRepresentable {
         ambientLightNode.light!.type = .ambient
         ambientLightNode.light!.color = UIColor.darkGray
         scene.rootNode.addChildNode(ambientLightNode)
-        
-        let w = 0.1
-        let h = 0.1
-        let l = 0.1
-        let verts = [
-            // bottom 4 vertices
-            SCNVector3(-w, -h, -l),
-            SCNVector3(w, -h, -l),
-            SCNVector3(w, -h, l),
-            SCNVector3(-w, -h, l),
 
-            // top 4 vertices
-            SCNVector3(-w, h, -l),
-            SCNVector3(w, h, -l),
-            SCNVector3(w, h, l),
-            SCNVector3(-w, h, l),
-        ]
-        var indices: [UInt32] = [
-            // bottom face
-            0, 1, 3,
-            3, 1, 2,
-            // left face
-            0, 3, 4,
-            4, 3, 7,
-            // right face
-            1, 5, 2,
-            2, 5, 6,
-            // top face
-            4, 7, 5,
-            5, 7, 6,
-            // front face
-            3, 2, 7,
-            7, 2, 6,
-            // back face
-            0, 4, 1,
-            1, 4, 5,
-        ]
+//        let w: Float32 = 0.05
+//        let h: Float32 = 0.05
+//        let l: Float32 = 0.05
+//        let verts: [simd_float3] = [
+//            // bottom 4 vertices
+//            simd_float3(-w, -h, -l),
+//            simd_float3(w, -h, -l),
+//            simd_float3(w, -h, l),
+//            simd_float3(-w, -h, l),
+//
+//            // top 4 vertices
+//            simd_float3(-w, h, -l),
+//            simd_float3(w, h, -l),
+//            simd_float3(w, h, l),
+//            simd_float3(-w, h, l),
+//        ]
+//        var indices: [UInt32] = [
+//            // bottom face
+//            0, 1, 3,
+//            3, 1, 2,
+//            // left face
+//            0, 3, 4,
+//            4, 3, 7,
+//            // right face
+//            1, 5, 2,
+//            2, 5, 6,
+//            // top face
+//            4, 7, 5,
+//            5, 7, 6,
+//            // front face
+//            3, 2, 7,
+//            7, 2, 6,
+//            // back face
+//            0, 4, 1,
+//            1, 4, 5,
+//        ]
+//        let vertexDataOriginal = Data(
+//            bytes: verts,
+//            count: MemoryLayout<simd_float3>.size * verts.count
+//        )
+//        let verticesBuff = EnvironmentVariables.shared.metalDevice.makeBuffer(bytes: verts, length: MemoryLayout<simd_float3>.stride * verts.count)
+//        let indicesBuff = EnvironmentVariables.shared.metalDevice.makeBuffer(bytes: indices, length: MemoryLayout<UInt32>.stride * indices.count)
         let vertexData = Data(
-            bytes: verts,
-            count: MemoryLayout<SCNVector3>.size * verts.count
+            bytes: UnsafeRawPointer(vertBuffer.contents()),
+            count: MemoryLayout<SIMD3<Float>>.stride * numVerts
         )
         let indexData = Data(
-            bytes: indices,
-            count: MemoryLayout<UInt32>.size * indices.count
+            bytes: UnsafeRawPointer(indBuffer.contents()),
+            count: MemoryLayout<UInt32>.size * numIndices
         )
-        
         let positionSource = SCNGeometrySource(
             data: vertexData,
             semantic: SCNGeometrySource.Semantic.vertex,
-            vectorCount: verts.count,
+            vectorCount: numVerts,
             usesFloatComponents: true,
             componentsPerVector: 3,
             bytesPerComponent: MemoryLayout<Float>.size,
             dataOffset: 0,
-            dataStride: MemoryLayout<SCNVector3>.size
+            dataStride: MemoryLayout<simd_float3>.size
         )
         
         let elements = SCNGeometryElement(
             data: indexData,
             primitiveType: .triangles,
-            primitiveCount: indices.count / 3,
+            primitiveCount: numIndices / 3,
             bytesPerIndex: MemoryLayout<UInt32>.size
         )
         let geometry = SCNGeometry.init(sources: [positionSource], elements: [elements])
@@ -95,7 +110,7 @@ struct DisplayObjectView : UIViewRepresentable {
         geometry.firstMaterial?.diffuse.contents = UIColor.white
         geometry.firstMaterial?.specular.contents = UIColor(white: 0.6, alpha: 1.0)
         let node = SCNNode(geometry: geometry)
-        node.position = SCNVector3(x: 0, y: 0, z: -1)
+        node.position = SCNVector3(x: 0, y: 0, z: -0.25)
         scene.rootNode.addChildNode(node)
 
         // retrieve the ship node

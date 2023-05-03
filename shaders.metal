@@ -522,25 +522,71 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
     }
 }
 
-//// Generates rays starting from the camera origin and traveling towards the image plane aligned
-//// with the camera's coordinate system.
-//kernel void rayTracingKernel(uint2 tid [[thread_position_in_grid]],
-//                      // Buffers bound on the CPU. Note that 'constant' should be used for small
-//                      // read-only data which will be reused across threads. 'device' should be
-//                      // used for writable data or data which will only be used by a single thread.
-//                      device Ray *rays [[buffer(0)]],
-//                      device Intersection *intersections [[buffer(1)]],
-//                      device float3 &finalPos [[buffer(2)]])
-//                      //device float3 &voxel)
-//{
-//
-//    // Ray we will produce
-//    device Ray &ray = rays[0];
-//    device Intersection &intersection = intersections[0];
-//    if (intersection.distance == -1) {
-//        finalPos = float3(0, 0, 0);
-//    } else {
-//        finalPos = ray.origin + ray.direction * intersection.distance; //float3(0, float(intersection.primitiveIndex), intersection.distance);
-//        finalPos[0] = intersection.distance;
-//    }
-//}
+
+void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
+    uint vertexIndex = uint(index) * 8; // 8 vertices in a cube
+    uint indiceIndex = uint(index) * 36; // 12 triangles in a cube triangle strip, 3 indices per strip
+    float zIndex = fmod(index, voxelCount.z);
+    float yIndex = fmod((index / voxelCount.z), voxelCount.y);
+    float xIndex = index / (voxelCount.y * voxelCount.z);
+    float voxelSize = boxSize.x / voxelCount.x;
+    float voxelHalfSize = voxelSize / 2.0;
+    float w = voxelHalfSize;
+    float h = voxelHalfSize;
+    float l = voxelHalfSize;
+    float x = xIndex * voxelSize + vmin.x + voxelHalfSize;
+    float y = -(yIndex * voxelSize + vmin.y + voxelHalfSize);
+    float z = -(zIndex * voxelSize + vmin.z + voxelHalfSize);
+    // top 4 vertices
+    vertexData[vertexIndex] = float3(x - w, y - h, z - l);
+    vertexData[vertexIndex+1] = float3(x + w, y - h, z - l);
+    vertexData[vertexIndex+2] = float3(x + w, y - h, z + l);
+    vertexData[vertexIndex+3] = float3(x - w, y - h, z + l);
+    // bottom 4 vertices
+    vertexData[vertexIndex+4] = float3(x - w, y + h, z - l);
+    vertexData[vertexIndex+5] = float3(x + w, y + h, z - l);
+    vertexData[vertexIndex+6] = float3(x + w, y + h, z + l);
+    vertexData[vertexIndex+7] = float3(x - w, y + h, z + l);
+    // bottom face
+    indexData[indiceIndex] = vertexIndex + 0;
+    indexData[indiceIndex+1] = vertexIndex + 1;
+    indexData[indiceIndex+2] = vertexIndex + 3;
+    indexData[indiceIndex+3] = vertexIndex + 3;
+    indexData[indiceIndex+4] = vertexIndex + 1;
+    indexData[indiceIndex+5] = vertexIndex + 2;
+    // left face
+    indexData[indiceIndex+6] = vertexIndex + 0;
+    indexData[indiceIndex+7] = vertexIndex + 3;
+    indexData[indiceIndex+8] = vertexIndex + 4;
+    indexData[indiceIndex+9] = vertexIndex + 4;
+    indexData[indiceIndex+10] = vertexIndex + 3;
+    indexData[indiceIndex+11] = vertexIndex + 7;
+    // right face
+    indexData[indiceIndex+12] = vertexIndex + 1;
+    indexData[indiceIndex+13] = vertexIndex + 5;
+    indexData[indiceIndex+14] = vertexIndex + 2;
+    indexData[indiceIndex+15] = vertexIndex + 2;
+    indexData[indiceIndex+16] = vertexIndex + 5;
+    indexData[indiceIndex+17] = vertexIndex + 6;
+    // top face
+    indexData[indiceIndex+18] = vertexIndex + 4;
+    indexData[indiceIndex+19] = vertexIndex + 7;
+    indexData[indiceIndex+20] = vertexIndex + 5;
+    indexData[indiceIndex+21] = vertexIndex + 5;
+    indexData[indiceIndex+22] = vertexIndex + 7;
+    indexData[indiceIndex+23] = vertexIndex + 6;
+    // front face
+    indexData[indiceIndex+24] = vertexIndex + 3;
+    indexData[indiceIndex+25] = vertexIndex + 2;
+    indexData[indiceIndex+26] = vertexIndex + 7;
+    indexData[indiceIndex+27] = vertexIndex + 7;
+    indexData[indiceIndex+28] = vertexIndex + 2;
+    indexData[indiceIndex+29] = vertexIndex + 6;
+    // back face
+    indexData[indiceIndex+30] = vertexIndex + 0;
+    indexData[indiceIndex+31] = vertexIndex + 4;
+    indexData[indiceIndex+32] = vertexIndex + 1;
+    indexData[indiceIndex+33] = vertexIndex + 1;
+    indexData[indiceIndex+34] = vertexIndex + 4;
+    indexData[indiceIndex+35] = vertexIndex + 5;
+}

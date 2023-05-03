@@ -62,12 +62,13 @@ final class ARProvider: ARDataReceiver {
     let origColorWidth = 1920
     let origColorHeight = 1440
     
-    // Set voxel boundaries.
-    let voxelsPerSide = 60
-    let voxelSize = 0.01 // 0.01 = 1cm
-    let voxelStartX = -0.3
-    let voxelStartY = -0.3
-    let voxelStartZ = -0.3
+    // Set voxel details.
+    let voxelsPerSide = 30
+    let vertCount: Int! // TODO: not make magic number later, doesn't go over to Metal version
+    let vertsPerVoxel = 8
+    let indicesPerVoxel = 36
+    let vertBufferLen: Int!
+    let indBufferLen: Int!
     
     let arReceiver = ARReceiver()
     var lastArData: ARData?
@@ -89,6 +90,8 @@ final class ARProvider: ARDataReceiver {
     let destDepthTexture: MTLTexture
     let voxelIns: MTLBuffer
     let voxelOuts: MTLBuffer
+    let vertBuffer: MTLBuffer
+    let indBuffer: MTLBuffer
     let destConfTexture: MTLTexture
     let colorRGBTexture: MTLTexture
     let colorRGBTextureDownscaled: MTLTexture
@@ -277,21 +280,12 @@ final class ARProvider: ARDataReceiver {
         arReceiver.pause()
     }
     
-    // need to do on GPU, don't use
-    func initVoxelArray() {
-        for i in 0..<voxelsPerSide {
-            Voxels.append([])
-            for j in 0..<voxelsPerSide {
-                Voxels[i].append([])
-                for k in 0..<voxelsPerSide {
-                    Voxels[i][j].append(Voxel(worldCoords: simd_float3(x: Float(voxelStartX + Double(i) * voxelSize), y: Float(voxelStartY + Double(j) * voxelSize), z: Float(voxelStartZ - Double(k) * voxelSize)), ins: 0, outs: 0))
-                }
-            }
-        }
-    }
     // Initialize the MPS filters, metal pipeline, and Metal textures.
     init() {
         do {
+            vertCount = voxelsPerSide * voxelsPerSide * voxelsPerSide
+            vertBufferLen = vertCount * vertsPerVoxel
+            indBufferLen = vertCount * indicesPerVoxel
             metalDevice = EnvironmentVariables.shared.metalDevice
             CVMetalTextureCacheCreate(nil, nil, metalDevice, nil, &textureCache)
             mpsScaleFilter = MPSImageBilinearScale(device: metalDevice)
@@ -342,6 +336,47 @@ final class ARProvider: ARDataReceiver {
             downscaledRGB.texture = colorRGBTextureDownscaled
             voxelIns = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
             voxelOuts = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
+//            vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
+//            indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * indBufferLen)!
+//
+            let w: Float32 = 0.05
+            let h: Float32 = 0.05
+            let l: Float32 = 0.05
+            let verts: [simd_float3] = [
+                // bottom 4 vertices
+                simd_float3(-w, -h, -l),
+                simd_float3(w, -h, -l),
+                simd_float3(w, -h, l),
+                simd_float3(-w, -h, l),
+
+                // top 4 vertices
+                simd_float3(-w, h, -l),
+                simd_float3(w, h, -l),
+                simd_float3(w, h, l),
+                simd_float3(-w, h, l),
+            ]
+            var indices: [UInt32] = [
+                // bottom face
+                0, 1, 3,
+                3, 1, 2,
+                // left face
+                0, 3, 4,
+                4, 3, 7,
+                // right face
+                1, 5, 2,
+                2, 5, 6,
+                // top face
+                4, 7, 5,
+                5, 7, 6,
+                // front face
+                3, 2, 7,
+                7, 2, 6,
+                // back face
+                0, 4, 1,
+                1, 4, 5,
+            ]
+            vertBuffer = metalDevice.makeBuffer(bytes: verts, length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
+            indBuffer = metalDevice.makeBuffer(bytes: indices, length: MemoryLayout<UInt32>.stride * indBufferLen)!
             // Set the delegate for ARKit callbacks.
             arReceiver.delegate = self
             

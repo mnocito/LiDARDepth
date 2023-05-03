@@ -126,7 +126,7 @@ struct MetalDepthView: View {
                             }) {
                                 Text("Back")
                             }.buttonStyle(.bordered)
-                DisplayObjectView(session: arProvider.arReceiver.arSession)
+                DisplayObjectView(session: arProvider.arReceiver.arSession, vBuffer: arProvider.vertBuffer, iBuffer: arProvider.indBuffer)
             }else {
                 VStack {
                     Button(action: {
