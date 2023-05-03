@@ -42,18 +42,7 @@ struct DisplayObjectView : UIViewRepresentable {
             SCNVector3(w, h, -l),
             SCNVector3(w, h, l),
             SCNVector3(-w, h, l),
-            SCNVector3(0, 0, 0),
-            SCNVector3(0, 0, 0),
-            SCNVector3(0, 0, 0),
-            SCNVector3(0, 0, 0),
-
-            // top 4 vertices
-            SCNVector3(0, 0, 0),
-            SCNVector3(0, 0, 0),
-            SCNVector3(0, 0, 0),
-            SCNVector3(0, 0, 0),
         ]
-        let src = SCNGeometrySource(vertices: verts)
         var indices: [UInt32] = [
             // bottom face
             0, 1, 3,
@@ -74,16 +63,33 @@ struct DisplayObjectView : UIViewRepresentable {
             0, 4, 1,
             1, 4, 5,
         ]
-        for i in indices {
-            indices.append(0)
-        }
         let vertexData = Data(
             bytes: verts,
             count: MemoryLayout<SCNVector3>.size * verts.count
         )
+        let indexData = Data(
+            bytes: indices,
+            count: MemoryLayout<UInt32>.size * indices.count
+        )
         
-        let inds = SCNGeometryElement(indices: indices, primitiveType: .triangles)
-        let geometry = SCNGeometry.init(sources: [src], elements: [inds])
+        let positionSource = SCNGeometrySource(
+            data: vertexData,
+            semantic: SCNGeometrySource.Semantic.vertex,
+            vectorCount: verts.count,
+            usesFloatComponents: true,
+            componentsPerVector: 3,
+            bytesPerComponent: MemoryLayout<Float>.size,
+            dataOffset: 0,
+            dataStride: MemoryLayout<SCNVector3>.size
+        )
+        
+        let elements = SCNGeometryElement(
+            data: indexData,
+            primitiveType: .triangles,
+            primitiveCount: indices.count / 3,
+            bytesPerIndex: MemoryLayout<UInt32>.size
+        )
+        let geometry = SCNGeometry.init(sources: [positionSource], elements: [elements])
         //geometry.firstMaterial?.diffuse.contents = UIColor.red
         //let geometry = SCNBox(width: 0.25, height: 0.25, length: 0.25, chamferRadius: 0)
         geometry.firstMaterial?.diffuse.contents = UIColor.white
