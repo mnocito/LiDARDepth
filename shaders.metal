@@ -524,6 +524,14 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
 
 void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
+    float3 vmin = float3(-0.15f, -0.15f, 0.3f);
+
+    float3 vmax = float3(0.15f, 0.15f, 0.6f);
+
+    float3 boxSize = abs(vmax - vmin);
+
+    float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+    
     uint vertexIndex = uint(index) * 8; // 8 vertices in a cube
     uint indiceIndex = uint(index) * 36; // 12 triangles in a cube triangle strip, 3 indices per strip
     float zIndex = fmod(index, voxelCount.z);
@@ -590,3 +598,24 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     indexData[indiceIndex+34] = vertexIndex + 4;
     indexData[indiceIndex+35] = vertexIndex + 5;
 }
+
+
+// Generates rays starting from the startingPos traveling towards the mask pixels
+kernel void samplePopulateVoxels(device float3 *vertexData,
+                                 device uint *indexData,
+                                 uint3 gid [[thread_position_in_grid]]) {
+    uint x = gid.x;
+    uint y = gid.y;
+    uint z = gid.z;
+    float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+    if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for vals to be larger than our bounds
+        return;
+    }
+    if ((uint(x - 15) * uint(x - 15) + uint(y - 15) * uint(y - 15) + uint(z - 15) * uint(z - 15)) > 25) {
+        return;
+    }
+    
+    float index = x + y * voxelCount.x + z * voxelCount.x * voxelCount.y;
+    populateGeometryBuffersAtIndex(vertexData, indexData, index);
+}
+

@@ -105,6 +105,7 @@ struct DisplayObjectView : UIViewRepresentable {
             bytesPerIndex: MemoryLayout<UInt32>.size
         )
         let geometry = SCNGeometry.init(sources: [positionSource], elements: [elements])
+        
         //geometry.firstMaterial?.diffuse.contents = UIColor.red
         //let geometry = SCNBox(width: 0.25, height: 0.25, length: 0.25, chamferRadius: 0)
         geometry.firstMaterial?.diffuse.contents = UIColor.white
@@ -112,6 +113,14 @@ struct DisplayObjectView : UIViewRepresentable {
         let node = SCNNode(geometry: geometry)
         node.position = SCNVector3(x: 0, y: 0, z: -0.25)
         scene.rootNode.addChildNode(node)
+        for i in 0..<(30*30*30) {
+            let vertexPointer = vertBuffer.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
+            let vert = vertexPointer.assumingMemoryBound(to: simd_float3.self).pointee
+            if vert[0] != 0 || vert[1] != 0 || vert[2] != 0 {
+                print("I: " + String(i))
+                print(vert)
+            }
+        }
 
         // retrieve the ship node
         //let ship = scene.rootNode.childNode(withName: "ship", recursively: true)!

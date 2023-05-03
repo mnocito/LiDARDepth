@@ -258,6 +258,7 @@ final class ARProvider: ARDataReceiver {
     let LightSourceRGBToTexturePipelineComputeState: MTLComputePipelineState?
     let rayPipelineComputeState: MTLComputePipelineState?
     let intersectPipeline: MTLComputePipelineState?
+    let populateVoxelPipeline: MTLComputePipelineState?
     
     // Create an empty texture.
     static func createTexture(metalDevice: MTLDevice, width: Int, height: Int, usage: MTLTextureUsage, pixelFormat: MTLPixelFormat) -> MTLTexture {
@@ -307,6 +308,12 @@ final class ARProvider: ARDataReceiver {
             intersectPipeline = try metalDevice.makeComputePipelineState(descriptor: intersectDescriptor,
                                                                    options: [],
                                                                          reflection: nil)
+            let populateVoxelDesc = MTLComputePipelineDescriptor()
+            populateVoxelDesc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true
+            populateVoxelDesc.computeFunction = lib.makeFunction(name: "samplePopulateVoxels")
+            populateVoxelPipeline = try metalDevice.makeComputePipelineState(descriptor: populateVoxelDesc,
+                                                                   options: [],
+                                                                         reflection: nil)
             let convertRGB2LightSourceCoordsFunc = lib.makeFunction(name: "getLightSource")
             RGBToLightSourceXYCoordsPipelineComputeState = try metalDevice.makeComputePipelineState(function: convertRGB2LightSourceCoordsFunc!)
             let convertRGB2LightSourceTexture = lib.makeFunction(name: "getLightSourceTexture")
@@ -339,44 +346,56 @@ final class ARProvider: ARDataReceiver {
 //            vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
 //            indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * indBufferLen)!
 //
-            let w: Float32 = 0.05
-            let h: Float32 = 0.05
-            let l: Float32 = 0.05
-            let verts: [simd_float3] = [
-                // bottom 4 vertices
-                simd_float3(-w, -h, -l),
-                simd_float3(w, -h, -l),
-                simd_float3(w, -h, l),
-                simd_float3(-w, -h, l),
-
-                // top 4 vertices
-                simd_float3(-w, h, -l),
-                simd_float3(w, h, -l),
-                simd_float3(w, h, l),
-                simd_float3(-w, h, l),
-            ]
-            var indices: [UInt32] = [
-                // bottom face
-                0, 1, 3,
-                3, 1, 2,
-                // left face
-                0, 3, 4,
-                4, 3, 7,
-                // right face
-                1, 5, 2,
-                2, 5, 6,
-                // top face
-                4, 7, 5,
-                5, 7, 6,
-                // front face
-                3, 2, 7,
-                7, 2, 6,
-                // back face
-                0, 4, 1,
-                1, 4, 5,
-            ]
-            vertBuffer = metalDevice.makeBuffer(bytes: verts, length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
-            indBuffer = metalDevice.makeBuffer(bytes: indices, length: MemoryLayout<UInt32>.stride * indBufferLen)!
+//            let w: Float32 = 0.05
+//            let h: Float32 = 0.05
+//            let l: Float32 = 0.05
+//            let verts: [simd_float3] = [
+//                // bottom 4 vertices
+//                simd_float3(-w, -h, -l),
+//                simd_float3(w, -h, -l),
+//                simd_float3(w, -h, l),
+//                simd_float3(-w, -h, l),
+//
+//                // top 4 vertices
+//                simd_float3(-w, h, -l),
+//                simd_float3(w, h, -l),
+//                simd_float3(w, h, l),
+//                simd_float3(-w, h, l),
+//            ]
+//            var indices: [UInt32] = [
+//                // bottom face
+//                0, 1, 3,
+//                3, 1, 2,
+//                // left face
+//                0, 3, 4,
+//                4, 3, 7,
+//                // right face
+//                1, 5, 2,
+//                2, 5, 6,
+//                // top face
+//                4, 7, 5,
+//                5, 7, 6,
+//                // front face
+//                3, 2, 7,
+//                7, 2, 6,
+//                // back face
+//                0, 4, 1,
+//                1, 4, 5,
+//            ]
+            vertBuffer = metalDevice.makeBuffer(/*bytes: verts,*/ length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
+            indBuffer = metalDevice.makeBuffer(/*bytes: indices,*/ length: MemoryLayout<UInt32>.stride * indBufferLen)!
+            // populate voxel test
+            guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+            guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+            computeEncoder.setComputePipelineState(populateVoxelPipeline!)
+            let threadgroupSize = MTLSizeMake(16, 16, 1)
+            let threadgroupCount = MTLSize(width: 2, height: 2, depth: 30)
+            computeEncoder.setBuffer(vertBuffer, offset: 0, index: 0)
+            computeEncoder.setBuffer(indBuffer, offset: 0, index: 1)
+            computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+            computeEncoder.endEncoding()
+            cmdBuffer.commit()
+            cmdBuffer.waitUntilCompleted()
             // Set the delegate for ARKit callbacks.
             arReceiver.delegate = self
             
