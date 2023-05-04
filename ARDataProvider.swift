@@ -64,11 +64,11 @@ final class ARProvider: ARDataReceiver {
     
     // Set voxel details.
     let voxelsPerSide = 30
-    let vertCount: Int! // TODO: not make magic number later, doesn't go over to Metal version
+    let vertCount: Int! // TODO: not make magic number later, doesn't port over to Metal version
     let vertsPerVoxel = 8
     let indicesPerVoxel = 36
-    let vertBufferLen: Int!
-    let indBufferLen: Int!
+    let numVertices: Int!
+    let numIndices: Int!
     
     let arReceiver = ARReceiver()
     var lastArData: ARData?
@@ -197,6 +197,7 @@ final class ARProvider: ARDataReceiver {
                                        depth: 1)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
+        // downscale to depth res
         xInt = UInt32(Double(xInt) / 7.5)
         yInt = UInt32(Double(yInt) / 7.5)
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { throw MTLCommandBufferError(.invalidResource) }
@@ -285,8 +286,8 @@ final class ARProvider: ARDataReceiver {
     init() {
         do {
             vertCount = voxelsPerSide * voxelsPerSide * voxelsPerSide
-            vertBufferLen = vertCount * vertsPerVoxel
-            indBufferLen = vertCount * indicesPerVoxel
+            numVertices = vertCount * vertsPerVoxel
+            numIndices = vertCount * indicesPerVoxel
             metalDevice = EnvironmentVariables.shared.metalDevice
             CVMetalTextureCacheCreate(nil, nil, metalDevice, nil, &textureCache)
             mpsScaleFilter = MPSImageBilinearScale(device: metalDevice)
@@ -343,8 +344,6 @@ final class ARProvider: ARDataReceiver {
             downscaledRGB.texture = colorRGBTextureDownscaled
             voxelIns = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
             voxelOuts = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
-//            vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
-//            indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * indBufferLen)!
 //
 //            let w: Float32 = 0.05
 //            let h: Float32 = 0.05
@@ -382,8 +381,8 @@ final class ARProvider: ARDataReceiver {
 //                0, 4, 1,
 //                1, 4, 5,
 //            ]
-            vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
-            indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * indBufferLen)!
+            vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * numVertices)!
+            indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * numIndices)!
             // Set the delegate for ARKit callbacks.
             arReceiver.delegate = self
             

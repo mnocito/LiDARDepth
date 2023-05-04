@@ -7,18 +7,15 @@ struct DisplayObjectView : UIViewRepresentable {
     var arSession: ARSession!
     var vertBuffer: MTLBuffer!
     var indBuffer: MTLBuffer!
-    let vertCount = 30 * 30 * 30 // TODO: not make magic number later
-    let vertsPerVoxel = 8
-    let indicesPerVoxel = 36
-    let numVerts: Int!
+    let numVertices: Int!
     let numIndices: Int!
     
-    init(session: ARSession!, vBuffer: MTLBuffer!, iBuffer: MTLBuffer!) {
+    init(session: ARSession!, vBuffer: MTLBuffer!, iBuffer: MTLBuffer!, numVerts: Int!, numInds: Int!) {
         arSession = session
         vertBuffer = vBuffer
         indBuffer = iBuffer
-        numVerts = vertCount * vertsPerVoxel
-        numIndices = vertCount * indicesPerVoxel
+        numVertices = numVerts
+        numIndices = numInds
     }
 
     func makeUIView(context: Context) -> SCNView {
@@ -81,7 +78,7 @@ struct DisplayObjectView : UIViewRepresentable {
 //        let indicesBuff = EnvironmentVariables.shared.metalDevice.makeBuffer(bytes: indices, length: MemoryLayout<UInt32>.stride * indices.count)
         let vertexData = Data(
             bytes: UnsafeRawPointer(vertBuffer.contents()),
-            count: MemoryLayout<SIMD3<Float>>.stride * numVerts
+            count: MemoryLayout<SIMD3<Float>>.stride * numVertices
         )
         let indexData = Data(
             bytes: UnsafeRawPointer(indBuffer.contents()),
@@ -90,7 +87,7 @@ struct DisplayObjectView : UIViewRepresentable {
         let positionSource = SCNGeometrySource(
             data: vertexData,
             semantic: SCNGeometrySource.Semantic.vertex,
-            vectorCount: numVerts,
+            vectorCount: numVertices,
             usesFloatComponents: true,
             componentsPerVector: 3,
             bytesPerComponent: MemoryLayout<Float>.size,
@@ -113,45 +110,15 @@ struct DisplayObjectView : UIViewRepresentable {
         let node = SCNNode(geometry: geometry)
         node.position = SCNVector3(x: 0, y: 0, z: -0.25)
         scene.rootNode.addChildNode(node)
-        for i in 0..<(30*30*30) {
-            let vertexPointer = vertBuffer.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
-            let vert = vertexPointer.assumingMemoryBound(to: simd_float3.self).pointee
-            if vert[0] != 0 || vert[1] != 0 || vert[2] != 0 {
-                print("I: " + String(i))
-                print(vert)
-            }
-        }
-
-        // retrieve the ship node
-        //let ship = scene.rootNode.childNode(withName: "ship", recursively: true)!
-        //ship.position = SCNVector3(x: 0, y: 0, z: -10)
-        
-//        // retrieve the SCNView
-//        let boxGeometry = SCNBox(width: 0.01, height: 0.01, length: 0.01, chamferRadius: 0)
-//        //let boxGeometry2 = SCNBox(width: 0.01, height: 0.01, length: 0.01, chamferRadius: 0)
-//
-//        let material = SCNMaterial()
-//
-//        material.diffuse.contents = UIColor.white
-//        material.specular.contents = UIColor(white: 0.6, alpha: 1.0)
-//
-//        let boxNode = SCNNode(geometry: boxGeometry)
-//        boxNode.geometry?.materials = [material]
-//        let boxNode2 = SCNNode(geometry: boxGeometry)
-//        boxNode2.geometry?.materials = [material]
-//        for i in 0..<20 {
-//            for j in 0..<20 {
-//                for k in 0..<20 {
-//                    let boxNode = SCNNode(geometry: boxGeometry)
-//                    boxNode.geometry?.materials = [material]
-//                    if i == 5 {
-//                        continue
-//                    }
-//                    boxNode.position = SCNVector3(-0.05 + Double(i) * 0.01,-0.05 + Double(j) * 0.01,-1.05 + Double(k) * 0.01)
-//                    scene.rootNode.addChildNode(boxNode)
-//                }
+//        for i in 0..<(30*30*30) {
+//            let vertexPointer = vertBuffer.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
+//            let vert = vertexPointer.assumingMemoryBound(to: simd_float3.self).pointee
+//            if vert[0] != 0 || vert[1] != 0 || vert[2] != 0 {
+//                print("I: " + String(i))
+//                print(vert)
 //            }
 //        }
+
         let scnView = ARSCNView()
         scnView.session = arSession
         return scnView

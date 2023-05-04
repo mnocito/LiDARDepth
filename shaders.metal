@@ -600,7 +600,8 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 }
 
 bool occupied(float m, float n) {
-    return m > 0;
+    return true;
+    //return m > 0;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
