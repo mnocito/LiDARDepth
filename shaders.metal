@@ -522,7 +522,7 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
     }
 }
 
-
+// create cube geometry
 void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
     float3 vmin = float3(-0.15f, -0.15f, 0.3f);
 
@@ -599,23 +599,38 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     indexData[indiceIndex+35] = vertexIndex + 5;
 }
 
+bool occupied(float m, float n) {
+    float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
+    float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
+    float p0 = 0.95; // Prior probability that any voxel is empty
+    float p1 = 0.05; // Prior probability that any voxel is occupied
+    float T = 0.95; // Probabilitzy threshold to decide that voxel is occupied
+    float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
+    return probablisticOccupancy > T;
+}
 
-// Generates rays starting from the startingPos traveling towards the mask pixels
-kernel void samplePopulateVoxels(device float3 *vertexData,
-                                 device uint *indexData,
+// Populate voxels for display.
+kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
+                                 device uint *indexData [[buffer(1)]],
+                                 device uint *ins [[buffer(2)]], // can i make this non-atomic? think so
+                                 device uint *outs [[buffer(3)]],
                                  uint3 gid [[thread_position_in_grid]]) {
     uint x = gid.x;
     uint y = gid.y;
     uint z = gid.z;
     float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
-    if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for vals to be larger than our bounds
+    if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for thread vals to be larger than our bounds
         return;
     }
-    if ((uint(x - 15) * uint(x - 15) + uint(y - 15) * uint(y - 15) + uint(z - 15) * uint(z - 15)) > 25) {
-        return;
-    }
-    
+//   sphere test
+//    if ((uint(x - 15) * uint(x - 15) + uint(y - 15) * uint(y - 15) + uint(z - 15) * uint(z - 15)) > 25) {
+//        return;
+//    }
     float index = x + y * voxelCount.x + z * voxelCount.x * voxelCount.y;
-    populateGeometryBuffersAtIndex(vertexData, indexData, index);
+    float m = float(ins[uint(index)]);
+    float n = float(outs[uint(index)]);
+    if (occupied(m, n)) {
+        populateGeometryBuffersAtIndex(vertexData, indexData, index);
+    }
 }
 
