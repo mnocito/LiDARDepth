@@ -382,28 +382,31 @@ final class ARProvider: ARDataReceiver {
 //                0, 4, 1,
 //                1, 4, 5,
 //            ]
-            vertBuffer = metalDevice.makeBuffer(/*bytes: verts,*/ length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
-            indBuffer = metalDevice.makeBuffer(/*bytes: indices,*/ length: MemoryLayout<UInt32>.stride * indBufferLen)!
-            // populate voxel test
-            guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
-            guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
-            computeEncoder.setComputePipelineState(populateVoxelPipeline!)
-            let threadgroupSize = MTLSizeMake(16, 16, 1)
-            let threadgroupCount = MTLSize(width: 2, height: 2, depth: 30)
-            computeEncoder.setBuffer(vertBuffer, offset: 0, index: 0)
-            computeEncoder.setBuffer(indBuffer, offset: 0, index: 1)
-            computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
-            computeEncoder.endEncoding()
-            cmdBuffer.commit()
-            cmdBuffer.waitUntilCompleted()
+            vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * vertBufferLen)!
+            indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * indBufferLen)!
             // Set the delegate for ARKit callbacks.
             arReceiver.delegate = self
             
         } catch {
             fatalError("Unexpected error: \(error).")
         }
-        //initVoxelArray()
-        //print(Voxels)
+    }
+    
+    func populateVoxels() {
+        // populate voxel test
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        computeEncoder.setComputePipelineState(populateVoxelPipeline!)
+        let threadgroupSize = MTLSizeMake(16, 16, 1)
+        let threadgroupCount = MTLSize(width: 2, height: 2, depth: 30)
+        computeEncoder.setBuffer(vertBuffer, offset: 0, index: 0)
+        computeEncoder.setBuffer(indBuffer, offset: 0, index: 1)
+        computeEncoder.setBuffer(voxelIns, offset: 0, index: 2)
+        computeEncoder.setBuffer(voxelOuts, offset: 0, index: 3)
+        computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+        computeEncoder.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
     }
     
     func rayTraceLastFrame() {

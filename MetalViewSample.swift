@@ -113,6 +113,7 @@ struct MetalDepthView: View {
                                                 Text("Manage captured frames")
                                             }.buttonStyle(.bordered)
                                 Button(action: {
+                                                arProvider.populateVoxels()
                                                 showObject = true
                                             }) {
                                                 Text("Carve chosen frames")
