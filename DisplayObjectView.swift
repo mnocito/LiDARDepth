@@ -108,7 +108,7 @@ struct DisplayObjectView : UIViewRepresentable {
         geometry.firstMaterial?.diffuse.contents = UIColor.white
         geometry.firstMaterial?.specular.contents = UIColor(white: 0.6, alpha: 1.0)
         let node = SCNNode(geometry: geometry)
-        node.position = SCNVector3(x: 0, y: 0, z: -0.25)
+        //node.position = SCNVector3(x: 0, y: 0, z: -0.25)
         scene.rootNode.addChildNode(node)
 //        for i in 0..<(30*30*30) {
 //            let vertexPointer = vertBuffer.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))

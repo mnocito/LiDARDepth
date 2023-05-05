@@ -45,9 +45,9 @@ struct Ray {
 };
 
 
-constant float3 vmin = float3(-0.15f, -0.15f, 0.3f);
+constant float3 vmin = float3(-0.15f, -0.15f, 0.5f);
 
-constant float3 vmax = float3(0.15f, 0.15f, 0.6f);
+constant float3 vmax = float3(0.15f, 0.15f, 0.8f);
 
 constant float3 boxSize = abs(vmax - vmin);
 
@@ -333,21 +333,23 @@ constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
                                                   texture2d<half, access::write> shadowMask [[ texture(1) ]],
+                                                  constant float &min [[buffer(0)]],
+                                                  constant float &max [[buffer(1)]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half gray = dot(rgbResult, kRec709Luma);
-    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 509 && gid.y < 520) {
-        shadowMask.write(white, uint2(gid.xy));
-    } else {
-        shadowMask.write(black, uint2(gid.xy));
-    }
-//    if (gid.x > colorRGBTexture.get_width()/2 && gray > 0.05h && gray < 0.1h) { //
+//    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 509 && gid.y < 520) {
 //        shadowMask.write(white, uint2(gid.xy));
 //    } else {
 //        shadowMask.write(black, uint2(gid.xy));
 //    }
+    if (gid.x > colorRGBTexture.get_width()/2 && gray > half(min) && gray < half(max)) { //
+        shadowMask.write(white, uint2(gid.xy));
+    } else {
+        shadowMask.write(black, uint2(gid.xy));
+    }
 }
 
 constant uint squareSize = 100;
@@ -428,10 +430,10 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
         if (!isnan(tmin)) {
             
-            float3 vmin = float3(-0.15f, -0.15f, 0.3f);
+            float3 vmin = float3(-0.15f, -0.15f, 0.5f);
 
-            float3 vmax = float3(0.15f, 0.15f, 0.6f);
-
+            float3 vmax = float3(0.15f, 0.15f, 0.8f);
+            
             float3 boxSize = abs(vmax - vmin);
 
             float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
@@ -524,9 +526,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
 // create cube geometry
 void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
-    float3 vmin = float3(-0.15f, -0.15f, 0.3f);
+    float3 vmin = float3(-0.15f, -0.15f, 0.5f);
 
-    float3 vmax = float3(0.15f, 0.15f, 0.6f);
+    float3 vmax = float3(0.15f, 0.15f, 0.8f);
 
     float3 boxSize = abs(vmax - vmin);
 
@@ -543,7 +545,7 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     float h = voxelHalfSize;
     float l = voxelHalfSize;
     float x = xIndex * voxelSize + vmin.x + voxelHalfSize;
-    float y = -(yIndex * voxelSize + vmin.y + voxelHalfSize);
+    float y = -(yIndex * voxelSize + vmin.y + voxelHalfSize); // dont flip y?
     float z = -(zIndex * voxelSize + vmin.z + voxelHalfSize);
     // top 4 vertices
     vertexData[vertexIndex] = float3(x - w, y - h, z - l);

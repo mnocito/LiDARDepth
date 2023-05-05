@@ -70,6 +70,11 @@ final class ARProvider: ARDataReceiver {
     let numVertices: Int!
     let numIndices: Int!
     
+    // Set min and max grayscale values for our mask
+    var minGray: simd_float1 = 0.3
+    var maxGray: simd_float1 = 0.4
+    var calibrateMask = false
+    
     let arReceiver = ARReceiver()
     var lastArData: ARData?
     let depthContent = MetalTextureContent()
@@ -79,6 +84,7 @@ final class ARProvider: ARDataReceiver {
     let upscaledCoef = MetalTextureContent()
     let downscaledRGB = MetalTextureContent()
     let colorRGB = MetalTextureContent()
+    let colorRGBMasked = MetalTextureContent()
     let upscaledConfidence = MetalTextureContent()
     
     var LightSources: [LightSource] = []
@@ -94,8 +100,11 @@ final class ARProvider: ARDataReceiver {
     let indBuffer: MTLBuffer
     let destConfTexture: MTLTexture
     let colorRGBTexture: MTLTexture
+    let colorRGBMaskedTexture: MTLTexture
     let colorRGBTextureDownscaled: MTLTexture
     let colorRGBTextureDownscaledLowRes: MTLTexture
+    let colorRGBTextureBlurred: MTLTexture
+    let blurKernel: MPSImageGaussianBlur!
     
     // Enable or disable depth upsampling.
     public var isToUpsampleDepth: Bool = false {
@@ -112,17 +121,16 @@ final class ARProvider: ARDataReceiver {
     }
     
     func fillMaskTexture() {
-        let blurredImage = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
-                                                   usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
-        let kernel = MPSImageGaussianBlur(device: metalDevice, sigma: 8.0)
-        kernel.encode(commandBuffer: cmdBuffer,
+        blurKernel.encode(commandBuffer: cmdBuffer,
                       sourceTexture: colorRGBTexture,
-                      destinationTexture: blurredImage)
+                      destinationTexture: colorRGBTextureBlurred)
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
-        computeEncoder.setTexture(blurredImage, index: 0)
+        computeEncoder.setTexture(colorRGBTextureBlurred, index: 0)
         computeEncoder.setTexture(maskTexture, index: 1)
+        computeEncoder.setBytes(&minGray, length: MemoryLayout<simd_float1>.stride, index: 0)
+        computeEncoder.setBytes(&maxGray, length: MemoryLayout<simd_float1>.stride, index: 1)
         let threadgroupSize = MTLSizeMake(RGBToMaskPipelineComputeState!.threadExecutionWidth,
                                           RGBToMaskPipelineComputeState!.maxTotalThreadsPerThreadgroup / RGBToMaskPipelineComputeState!.threadExecutionWidth, 1)
         let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
@@ -246,7 +254,6 @@ final class ARProvider: ARDataReceiver {
     @Published var framesCaptured = 0
     // metal const
     let rayStride = MemoryLayout<simd_float3>.stride * 2
-    let voxelStride  = MemoryLayout<simd_float3>.stride + 2 * MemoryLayout<UInt32>.stride
 
     var textureCache: CVMetalTextureCache?
     let metalDevice: MTLDevice
@@ -334,14 +341,20 @@ final class ARProvider: ARDataReceiver {
                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .r8Unorm)
             colorRGBTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
+            colorRGBMaskedTexture = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
+                                                       usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
 
             colorRGBTextureDownscaled = ARProvider.createTexture(metalDevice: metalDevice, width: upscaledWidth, height: upscaledHeight,
                                                                  usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             colorRGBTextureDownscaledLowRes = ARProvider.createTexture(metalDevice: metalDevice, width: origDepthWidth, height: origDepthHeight,
                                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
+            colorRGBTextureBlurred = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
+                                                       usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             upscaledCoef.texture = coefTexture
             upscaledConfidence.texture = destConfTexture
             downscaledRGB.texture = colorRGBTextureDownscaled
+            colorRGB.texture = colorRGBTexture
+            colorRGBMasked.texture = colorRGBMaskedTexture
             voxelIns = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
             voxelOuts = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
 //
@@ -381,6 +394,7 @@ final class ARProvider: ARDataReceiver {
 //                0, 4, 1,
 //                1, 4, 5,
 //            ]
+            self.blurKernel = MPSImageGaussianBlur(device: metalDevice, sigma: 8.0)
             vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * numVertices)!
             indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * numIndices)!
             // Set the delegate for ARKit callbacks.
@@ -523,25 +537,38 @@ final class ARProvider: ARDataReceiver {
                                        depth: 1)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
-        if !isToUpsampleDepth {
+        cmdBuffer.commit()
+        if calibrateMask {
+            guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+            blurKernel.encode(commandBuffer: cmdBuffer,
+                          sourceTexture: colorRGBTexture,
+                          destinationTexture: colorRGBTextureBlurred)
+            guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+            computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
+            computeEncoder.setTexture(colorRGBTextureBlurred, index: 0)
+            computeEncoder.setTexture(colorRGBMaskedTexture, index: 1)
+            computeEncoder.setBytes(&minGray, length: MemoryLayout<simd_float1>.stride, index: 0)
+            computeEncoder.setBytes(&maxGray, length: MemoryLayout<simd_float1>.stride, index: 1)
+            computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
+            computeEncoder.endEncoding()
             cmdBuffer.commit()
-        } else {
-            // Downscale the RGB data. Pass in the target resoultion.
-            mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: colorRGBTexture,
-                                   destinationTexture: colorRGBTextureDownscaled)
-            // Match the input depth resolution.
-            mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: colorRGBTexture,
-                                   destinationTexture: colorRGBTextureDownscaledLowRes)
-            
-            // Upscale the confidence data. Pass in the target resolution.
-            mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: confidenceContent.texture!,
-                                   destinationTexture: destConfTexture)
-            cmdBuffer.commit()
-            
-            // Override the original depth texture with the upscaled version.
-            depthContent.texture = destDepthTexture
         }
+        // maybe don't need these lines
         colorRGB.texture = colorRGBTexture
+        colorRGBMasked.texture = colorRGBMaskedTexture
+    }
+    
+    // workaround to perms errors in MetalViewSample
+    func toggleCalibrateMask() {
+        calibrateMask = !calibrateMask
+    }
+    
+    func setGrayscaleMin(minGrayVal: simd_float1) {
+        minGray = minGrayVal
+    }
+    
+    func setGrayscaleMax(maxGrayVal: simd_float1) {
+        maxGray = maxGrayVal
     }
 }
 

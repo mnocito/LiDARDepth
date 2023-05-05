@@ -68,6 +68,7 @@ struct MetalDepthView: View {
     @State var isArPaused = false
     @State var chooseFrames = false
     @State var showObject = false
+    @State var calibrateMask = false
     @State private var scaleMovement: Float = 1.5
     
     var confLevels = ["🔵🟢🔴", "🔵🟢", "🔵"]
@@ -78,7 +79,7 @@ struct MetalDepthView: View {
         if !ARWorldTrackingConfiguration.supportsFrameSemantics([.sceneDepth, .smoothedSceneDepth]) {
             Text("Unsupported Device: This app requires the LiDAR Scanner to access the scene's depth.")
         } else {
-            if !chooseFrames && !showObject {
+            if !chooseFrames && !showObject && !calibrateMask {
                 NavigationView{
                         VStack() {
                             HStack() {
@@ -118,6 +119,13 @@ struct MetalDepthView: View {
                                             }) {
                                                 Text("Carve chosen frames")
                                             }.buttonStyle(.bordered)
+                                Button(action: {
+                                                //arProvider.populateVoxels()
+                                                calibrateMask = true
+                                                arProvider.toggleCalibrateMask()
+                                            }) {
+                                                Text("Calibrate mask")
+                                            }.buttonStyle(.bordered)
                             }.padding(.horizontal)
                         }
                     }.navigationViewStyle(StackNavigationViewStyle())
@@ -128,7 +136,25 @@ struct MetalDepthView: View {
                                 Text("Back")
                             }.buttonStyle(.bordered)
                 DisplayObjectView(session: arProvider.arReceiver.arSession, vBuffer: arProvider.vertBuffer, iBuffer: arProvider.indBuffer, numVerts: arProvider.numVertices, numInds: arProvider.numIndices)
-            }else {
+            } else if calibrateMask {
+                Button(action: {
+                                calibrateMask = false
+                                arProvider.toggleCalibrateMask()
+                            }) {
+                                Text("Back")
+                            }.buttonStyle(.bordered)
+                MetalTextureCalibrateMask(content: arProvider.colorRGBMasked)
+                    .zoomOnTapModifier(height: CGFloat(floor(sizeH/1.2)), width: CGFloat(floor(sizeW/1.2)), title: "")
+                    .rotationEffect(.degrees(-90))
+                HStack {
+                    Text("Min grayscale value")
+                    Slider(value: $arProvider.minGray, in: 0...1, step: 0.001)
+                    Text("Max grayscale value")
+                    Slider(value: $arProvider.maxGray, in: 0...1, step: 0.001)
+                    //Text(String(format: "%.3f", arProvider.minGray))
+                }.padding(.horizontal)
+                
+            } else {
                 VStack {
                     Button(action: {
                                     chooseFrames = false
@@ -142,7 +168,6 @@ struct MetalDepthView: View {
                                 Spacer().frame(width: 50)
                                 MetalTextureRGBImage(content: arProvider.LightSources[index].texture)
                                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.5)), width: CGFloat(floor(sizeW/2.5)), title: "")
-                                //.aspectRatio(CGSize(width: sizeW/4, height: sizeH/4), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
                                 Spacer().frame(width: 50)
                                 MetalTextureRGBImage(content: arProvider.ShadowMasks[index].mask)

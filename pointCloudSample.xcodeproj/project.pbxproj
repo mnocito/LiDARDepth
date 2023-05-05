@@ -23,6 +23,7 @@
 		723F2AAC29CCFBEA002E1B1F /* ARDataProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 723F2A9E29CCFBE9002E1B1F /* ARDataProvider.swift */; };
 		723F2AAD29CCFBEA002E1B1F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */; };
 		727FBD7129CD24AE00A7BFEA /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 727FBD7029CD24AE00A7BFEA /* shaders.metal */; };
+		72C3DCAE2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C3DCAD2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 		723F2A9E29CCFBE9002E1B1F /* ARDataProvider.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ARDataProvider.swift; sourceTree = "<group>"; };
 		723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		727FBD7029CD24AE00A7BFEA /* shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
+		72C3DCAD2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalTextureCalibrateMask.swift; sourceTree = "<group>"; };
 		762CB549210F49954E02A215 /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		9F60FDDEE7A7673198CD3F7A /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		E4DF0AFE24CF1A1A0024833B /* pointCloudSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pointCloudSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -79,6 +81,7 @@
 		E4DF0AF524CF1A1A0024833B = {
 			isa = PBXGroup;
 			children = (
+				72C3DCAD2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift */,
 				7205674D29F8B7E7001D16CB /* DisplayObjectView.swift */,
 				7205674B29F8B6E0001D16CB /* ship.scn */,
 				7235A6CE29E48B8A004A307F /* ShaderTypes.h */,
@@ -189,6 +192,7 @@
 				7205674E29F8B7E7001D16CB /* DisplayObjectView.swift in Sources */,
 				723F2AAB29CCFBEA002E1B1F /* MetalTextureViewDepth.swift in Sources */,
 				723F2AAC29CCFBEA002E1B1F /* ARDataProvider.swift in Sources */,
+				72C3DCAE2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift in Sources */,
 				723F2AA629CCFBEA002E1B1F /* MetalTextureViewConfidence.swift in Sources */,
 				723F2AA429CCFBEA002E1B1F /* MetalPointCloud.swift in Sources */,
 				723F2AA029CCFBEA002E1B1F /* PointCloudDepthSample.swift in Sources */,
