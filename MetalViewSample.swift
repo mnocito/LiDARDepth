@@ -147,10 +147,12 @@ struct MetalDepthView: View {
                     .zoomOnTapModifier(height: CGFloat(floor(sizeH/1.2)), width: CGFloat(floor(sizeW/1.2)), title: "")
                     .rotationEffect(.degrees(-90))
                 HStack {
-                    Text("Min grayscale value")
+                    Text("Min gray value")
                     Slider(value: $arProvider.minGray, in: 0...1, step: 0.001)
-                    Text("Max grayscale value")
+                    Text("Max gray value")
                     Slider(value: $arProvider.maxGray, in: 0...1, step: 0.001)
+                    Text("Blur sigma")
+                    Slider(value: $arProvider.blurSigma, in: 0...15, step: 0.1)
                     //Text(String(format: "%.3f", arProvider.minGray))
                 }.padding(.horizontal)
                 

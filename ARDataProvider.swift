@@ -73,6 +73,7 @@ final class ARProvider: ARDataReceiver {
     // Set min and max grayscale values for our mask
     var minGray: simd_float1 = 0.3
     var maxGray: simd_float1 = 0.4
+    var blurSigma: Float = 8
     var calibrateMask = false
     
     let arReceiver = ARReceiver()
@@ -104,7 +105,7 @@ final class ARProvider: ARDataReceiver {
     let colorRGBTextureDownscaled: MTLTexture
     let colorRGBTextureDownscaledLowRes: MTLTexture
     let colorRGBTextureBlurred: MTLTexture
-    let blurKernel: MPSImageGaussianBlur!
+    var blurKernel: MPSImageGaussianBlur!
     
     // Enable or disable depth upsampling.
     public var isToUpsampleDepth: Bool = false {
@@ -394,7 +395,7 @@ final class ARProvider: ARDataReceiver {
 //                0, 4, 1,
 //                1, 4, 5,
 //            ]
-            self.blurKernel = MPSImageGaussianBlur(device: metalDevice, sigma: 8.0)
+            blurKernel = MPSImageGaussianBlur(device: metalDevice, sigma: blurSigma)
             vertBuffer = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * numVertices)!
             indBuffer = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.stride * numIndices)!
             // Set the delegate for ARKit callbacks.
@@ -539,6 +540,7 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.endEncoding()
         cmdBuffer.commit()
         if calibrateMask {
+            blurKernel = MPSImageGaussianBlur(device: metalDevice, sigma: blurSigma)
             guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
             blurKernel.encode(commandBuffer: cmdBuffer,
                           sourceTexture: colorRGBTexture,
