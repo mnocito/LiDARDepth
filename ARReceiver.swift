@@ -25,7 +25,6 @@ final class ARData {
     var confidenceSmoothImage: CVPixelBuffer?
     var cameraIntrinsics = simd_float3x3()
     var cameraResolution = CGSize()
-    var anchors = [ARMeshAnchor]()
 }
 
 // Configure and run an AR session to provide the app with depth-related AR data.
@@ -39,6 +38,40 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     override init() {
         super.init()
         arSession.delegate = self
+        let device = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back)! // unsafe if running on non-lidar available device
+        guard let format = (device.formats.last { format in
+            format.formatDescription.dimensions.width == 1920 &&
+            format.formatDescription.mediaSubType.rawValue == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange &&
+            !format.isVideoBinned &&
+            !format.supportedDepthDataFormats.isEmpty
+        }) else {
+            print("no")
+            return
+        }
+        
+        guard let depthFormat = (format.supportedDepthDataFormats.last { depthFormat in
+            depthFormat.formatDescription.mediaSubType.rawValue == kCVPixelFormatType_DepthFloat16
+        }) else {
+            print("nope")
+            return
+        }
+        // Begin the device configuration.
+        do {
+            try device.lockForConfiguration()
+        } catch {
+            // Configure the device and depth formats.
+            device.activeFormat = format
+            device.exposureMode = AVCaptureDevice.ExposureMode.custom;
+            // magic apple constants
+            //let shortTime = CMTimeMake(value: 1, timescale: 100) // good for low exp
+            //device.setExposureModeCustom(duration: shortTime, iso: 300, completionHandler: nil)
+            let longTime = CMTimeMake(value: 33210999, timescale: 1000000000)
+            device.setExposureModeCustom(duration: longTime, iso: 1728, completionHandler: nil)
+            device.activeDepthDataFormat = depthFormat
+
+            // Finish the device configuration.
+            device.unlockForConfiguration()
+        }
         start()
     }
     
@@ -59,21 +92,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     // Send required data from `ARFrame` to the delegate class via the `onNewARData` callback.
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if(frame.sceneDepth != nil) && (frame.smoothedSceneDepth != nil) {
-            let anchors = frame.anchors.compactMap { $0 as? ARMeshAnchor }
             isReconstructing = true
-//            
-//            if anchors.count > 0 {
-//                if !isReconstructing {
-//                    isReconstructing = true
-//                    print("Reconstructing scene")
-//                }
-//            } else {
-//                if isReconstructing {
-//                    isReconstructing = false
-//                    print("No longer reconstructing scene")
-//                }
-//            }
-            arData.anchors = anchors
             arData.depthImage = frame.sceneDepth?.depthMap
             arData.depthSmoothImage = frame.smoothedSceneDepth?.depthMap
             arData.confidenceImage = frame.sceneDepth?.confidenceMap
