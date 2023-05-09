@@ -7,7 +7,9 @@ The sample app's Metal shaders.
 
 #include <metal_stdlib>
 #include <simd/simd.h>
-#define RAY_MASK_PRIMARY 3
+#define SHADOW 1
+#define LIGHT 2
+#define OUT_OF_AREA 3
 
 using namespace metal;
 using namespace raytracing;
@@ -24,24 +26,13 @@ typedef struct
     float2 texCoord;
 } ColorInOut;
 
-// Represents a three dimensional voxel.
-struct Voxel {
-    // Voxel location
-    float3 loc;
-    
-    // insides
-    uint ins;
-    
-    // outsides
-    uint outs;
-};
-
-// Represents a three dimensional ray which will be intersected with the scene.
+// Represents a three dimensional ray which will intersect with the voxels.
 struct Ray {
-    // Starting point
     float3 origin;
     
     float3 direction;
+    
+    uint type;
 };
 
 
@@ -329,6 +320,7 @@ kernel void getWorldCoords(
 constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722);
 constant half4 white = half4(1.0h, 1.0h, 1.0h, 1.0h);
 constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
+constant half4 gray = half4(0.5h, 0.5h, 0.5h, 1.0h);
 
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
@@ -395,6 +387,13 @@ kernel void LiDARToVerts(
     vert = coordsToWorld(cameraIntrinsics, gid, depth);
 }
 
+bool isGray(half3 rgbResult) {
+    return rgbResult.r == gray.r && rgbResult.g == gray.g && rgbResult.b == gray.b;
+}
+
+bool isWhite(half3 rgbResult) {
+    return rgbResult.r == white.r && rgbResult.g == white.g && rgbResult.b == white.b;
+}
 
 // Generates rays starting from the startingPos traveling towards the mask pixels
 kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) ]],
@@ -407,13 +406,20 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
                       uint2 gid [[thread_position_in_grid]])
 {
     half3 rgbResult = maskTexture.read(gid).rgb;
-    if (rgbResult.r == white.r && rgbResult.g == white.g && rgbResult.b == white.b) {
-        device Ray &ray = rays[gid.x + gid.y * maskTexture.get_width()];
+    device Ray &ray = rays[gid.x + gid.y * maskTexture.get_width()];
+    if (!isGray(rgbResult)) {
         float3 maskWorldPos = coordsToWorld(cameraIntrinsics, gid, depthTexture.read(gid).x);
         ray.origin = startingPos;
         ray.direction = normalize(maskWorldPos - startingPos);
         orig = ray.origin;
         dir = ray.direction;
+        if (isWhite(rgbResult)) {
+            ray.type = SHADOW;
+        } else {
+            ray.type = LIGHT;
+        }
+    } else {
+        ray.type = OUT_OF_AREA;
     }
 }
 
@@ -421,11 +427,12 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
 kernel void intersect(device Ray *rays [[buffer(0)]],
                       //device atomic_uint *ins [[buffer(1)]],
                       device atomic_uint *ins [[buffer(1)]],
-                      constant uint &width [[buffer(2)]],
+                      device atomic_uint *outs [[buffer(2)]],
+                      constant uint &width [[buffer(3)]],
                       uint2 gid [[thread_position_in_grid]])
 {
     device Ray &ray = rays[gid.x + gid.y * width];
-    if (ray.origin.x != 0.0f && ray.origin.y != 0.0f && ray.origin.z != 0.0f && ray.direction.x != 0.0f && ray.direction.y != 0.0f && ray.direction.z != 0.0f) {
+    if (ray.type != OUT_OF_AREA) {
         float tmin = rayBoxIntersection(ray.origin, ray.direction);
 
         if (!isnan(tmin)) {
@@ -501,7 +508,12 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
                 // add 1 to value
                 //ins[0] = 5;
                 //atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
-                atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
+                // do in and out count
+                if (ray.type == SHADOW) {
+                    atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
+                } else {
+                    atomic_fetch_add_explicit(&outs[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
+                }
                 if (tMaxX < tMaxY) {
                     if (tMaxX < tMaxZ) {
                         x = x + stepX;

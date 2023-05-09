@@ -254,7 +254,7 @@ final class ARProvider: ARDataReceiver {
     }
     @Published var framesCaptured = 0
     // metal const
-    let rayStride = MemoryLayout<simd_float3>.stride * 2
+    let rayStride = MemoryLayout<simd_float3>.stride * 2 + MemoryLayout<UInt32>.stride
 
     var textureCache: CVMetalTextureCache?
     let metalDevice: MTLDevice
@@ -482,7 +482,8 @@ final class ARProvider: ARDataReceiver {
         // debug, look at ray data
         computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)
         computeEncoder.setBuffer(voxelIns, offset: 0, index: 1)
-        computeEncoder.setBytes(&origDepthWidth, length: MemoryLayout<UInt32>.stride, index: 2)
+        computeEncoder.setBuffer(voxelOuts, offset: 0, index: 2)
+        computeEncoder.setBytes(&origDepthWidth, length: MemoryLayout<UInt32>.stride, index: 3)
         computeEncoder.setComputePipelineState(intersectPipeline!)
         // Launch threads
         computeEncoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
@@ -491,9 +492,8 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         print("done")
-        print(voxelIns.contents().load(as: UInt32.self))
         for i in 0..<(30*30*30) {
-            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+            let vertexPointer = voxelOuts.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
             let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
             if vert != 0 {
                 print("I: " + String(i))
