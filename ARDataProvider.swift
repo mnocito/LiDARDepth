@@ -71,8 +71,8 @@ final class ARProvider: ARDataReceiver {
     let numIndices: Int!
     
     // Set min and max grayscale values for our mask
-    var minGray: simd_float1 = 0.3
-    var maxGray: simd_float1 = 0.4
+    var minGray: simd_float1 = 0.01
+    var maxGray: simd_float1 = 0.3
     var blurSigma: Float = 8
     var calibrateMask = false
     
@@ -170,13 +170,13 @@ final class ARProvider: ARDataReceiver {
         let counterInt = counter.contents().load(as: UInt32.self)
         var xInt = x.contents().load(as: UInt32.self)
         var yInt = y.contents().load(as: UInt32.self)
-//        if (counterInt == 0) {
-//            throw IBOError.lightSourceNotFound
-//        }
-        //xInt = xInt/counterInt
-        //yInt = yInt/counterInt
-        xInt = 391
-        yInt = 509
+        if (counterInt == 0) {
+            throw IBOError.lightSourceNotFound
+        }
+        xInt = xInt/counterInt
+        yInt = yInt/counterInt
+//        xInt = 391
+//        yInt = 509
         print("xy")
         print(xInt)
         print(yInt)

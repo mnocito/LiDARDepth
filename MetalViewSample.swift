@@ -148,11 +148,11 @@ struct MetalDepthView: View {
                     .rotationEffect(.degrees(-90))
                 HStack {
                     Text("Min gray value")
-                    Slider(value: $arProvider.minGray, in: 0...1, step: 0.001)
+                    Slider(value: $arProvider.minGray, in: 0...1, step: 0.0001)
                     Text("Max gray value")
-                    Slider(value: $arProvider.maxGray, in: 0...1, step: 0.001)
+                    Slider(value: $arProvider.maxGray, in: 0...1, step: 0.0001)
                     Text("Blur sigma")
-                    Slider(value: $arProvider.blurSigma, in: 0...15, step: 0.1)
+                    Slider(value: $arProvider.blurSigma, in: 0...12, step: 0.1)
                     //Text(String(format: "%.3f", arProvider.minGray))
                 }.padding(.horizontal)
                 

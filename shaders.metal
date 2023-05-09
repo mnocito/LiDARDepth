@@ -602,8 +602,8 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 }
 
 bool occupied(float m, float n) {
-    return true;
-    //return m > 0;
+    //return true;
+    return m > 2;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
@@ -626,7 +626,7 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
     if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for thread vals to be larger than our bounds
         return;
     }
-//   sphere test
+   //sphere test
 //    if ((uint(x - 15) * uint(x - 15) + uint(y - 15) * uint(y - 15) + uint(z - 15) * uint(z - 15)) > 25) {
 //        return;
 //    }

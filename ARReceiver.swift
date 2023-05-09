@@ -38,6 +38,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     override init() {
         super.init()
         arSession.delegate = self
+        start()
         let device = AVCaptureDevice.default(.builtInLiDARDepthCamera, for: .video, position: .back)! // unsafe if running on non-lidar available device
         guard let format = (device.formats.last { format in
             format.formatDescription.dimensions.width == 1920 &&
@@ -72,7 +73,6 @@ final class ARReceiver: NSObject, ARSessionDelegate {
             // Finish the device configuration.
             device.unlockForConfiguration()
         }
-        start()
     }
     
     // Configure the ARKit session.
