@@ -73,8 +73,13 @@ final class ARProvider: ARDataReceiver {
     // Set min and max grayscale values for our mask
     var minGray: simd_float1 = 0.01
     var maxGray: simd_float1 = 0.3
+    var xMin: simd_float1 = 960
+    var xMax: simd_float1 = 1920
+    var yMin: simd_float1 = 0
+    var yMax: simd_float1 = 1440
     var blurSigma: Float = 8
     var calibrateMask = false
+    
     
     let arReceiver = ARReceiver()
     var lastArData: ARData?
@@ -132,6 +137,10 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.setTexture(maskTexture, index: 1)
         computeEncoder.setBytes(&minGray, length: MemoryLayout<simd_float1>.stride, index: 0)
         computeEncoder.setBytes(&maxGray, length: MemoryLayout<simd_float1>.stride, index: 1)
+        computeEncoder.setBytes(&xMin, length: MemoryLayout<UInt32>.stride, index: 2)
+        computeEncoder.setBytes(&xMax, length: MemoryLayout<UInt32>.stride, index: 3)
+        computeEncoder.setBytes(&yMin, length: MemoryLayout<UInt32>.stride, index: 4)
+        computeEncoder.setBytes(&yMax, length: MemoryLayout<UInt32>.stride, index: 5)
         let threadgroupSize = MTLSizeMake(RGBToMaskPipelineComputeState!.threadExecutionWidth,
                                           RGBToMaskPipelineComputeState!.maxTotalThreadsPerThreadgroup / RGBToMaskPipelineComputeState!.threadExecutionWidth, 1)
         let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
@@ -551,6 +560,10 @@ final class ARProvider: ARDataReceiver {
             computeEncoder.setTexture(colorRGBMaskedTexture, index: 1)
             computeEncoder.setBytes(&minGray, length: MemoryLayout<simd_float1>.stride, index: 0)
             computeEncoder.setBytes(&maxGray, length: MemoryLayout<simd_float1>.stride, index: 1)
+            computeEncoder.setBytes(&xMin, length: MemoryLayout<UInt32>.stride, index: 2)
+            computeEncoder.setBytes(&xMax, length: MemoryLayout<UInt32>.stride, index: 3)
+            computeEncoder.setBytes(&yMin, length: MemoryLayout<UInt32>.stride, index: 4)
+            computeEncoder.setBytes(&yMax, length: MemoryLayout<UInt32>.stride, index: 5)
             computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
             computeEncoder.endEncoding()
             cmdBuffer.commit()

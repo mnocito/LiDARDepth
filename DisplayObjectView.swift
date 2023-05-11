@@ -9,6 +9,7 @@ struct DisplayObjectView : UIViewRepresentable {
     var indBuffer: MTLBuffer!
     let numVertices: Int!
     let numIndices: Int!
+    var scnView: SCNView?
     
     init(session: ARSession!, vBuffer: MTLBuffer!, iBuffer: MTLBuffer!, numVerts: Int!, numInds: Int!) {
         arSession = session
@@ -17,7 +18,6 @@ struct DisplayObjectView : UIViewRepresentable {
         numVertices = numVerts
         numIndices = numInds
     }
-
     func makeUIView(context: Context) -> SCNView {
 
         // create and add a light to the scene
@@ -34,48 +34,6 @@ struct DisplayObjectView : UIViewRepresentable {
         ambientLightNode.light!.color = UIColor.darkGray
         scene.rootNode.addChildNode(ambientLightNode)
 
-//        let w: Float32 = 0.05
-//        let h: Float32 = 0.05
-//        let l: Float32 = 0.05
-//        let verts: [simd_float3] = [
-//            // bottom 4 vertices
-//            simd_float3(-w, -h, -l),
-//            simd_float3(w, -h, -l),
-//            simd_float3(w, -h, l),
-//            simd_float3(-w, -h, l),
-//
-//            // top 4 vertices
-//            simd_float3(-w, h, -l),
-//            simd_float3(w, h, -l),
-//            simd_float3(w, h, l),
-//            simd_float3(-w, h, l),
-//        ]
-//        var indices: [UInt32] = [
-//            // bottom face
-//            0, 1, 3,
-//            3, 1, 2,
-//            // left face
-//            0, 3, 4,
-//            4, 3, 7,
-//            // right face
-//            1, 5, 2,
-//            2, 5, 6,
-//            // top face
-//            4, 7, 5,
-//            5, 7, 6,
-//            // front face
-//            3, 2, 7,
-//            7, 2, 6,
-//            // back face
-//            0, 4, 1,
-//            1, 4, 5,
-//        ]
-//        let vertexDataOriginal = Data(
-//            bytes: verts,
-//            count: MemoryLayout<simd_float3>.size * verts.count
-//        )
-//        let verticesBuff = EnvironmentVariables.shared.metalDevice.makeBuffer(bytes: verts, length: MemoryLayout<simd_float3>.stride * verts.count)
-//        let indicesBuff = EnvironmentVariables.shared.metalDevice.makeBuffer(bytes: indices, length: MemoryLayout<UInt32>.stride * indices.count)
         let vertexData = Data(
             bytes: UnsafeRawPointer(vertBuffer.contents()),
             count: MemoryLayout<SIMD3<Float>>.stride * numVertices

@@ -155,6 +155,17 @@ struct MetalDepthView: View {
                     Slider(value: $arProvider.blurSigma, in: 0...12, step: 0.1)
                     //Text(String(format: "%.3f", arProvider.minGray))
                 }.padding(.horizontal)
+                HStack {
+                    Text("Min x value")
+                    Slider(value: $arProvider.xMin, in: 960...1920, step: 1.0)
+                    Text("Max x value")
+                    Slider(value: $arProvider.xMax, in: 960...1920, step: 1.0)
+                    Text("Min y value")
+                    Slider(value: $arProvider.yMin, in: 0...1440, step: 1.0)
+                    Text("Max y value")
+                    Slider(value: $arProvider.yMax, in: 0...1440, step: 1.0)
+                    //Text(String(format: "%.3f", arProvider.minGray))
+                }.padding(.horizontal)
                 
             } else {
                 VStack {

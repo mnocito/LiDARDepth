@@ -327,20 +327,28 @@ kernel void getShadowMask(
                                                   texture2d<half, access::write> shadowMask [[ texture(1) ]],
                                                   constant float &min [[buffer(0)]],
                                                   constant float &max [[buffer(1)]],
+                                                  constant float &xMin [[buffer(2)]],
+                                                  constant float &xMax [[buffer(3)]],
+                                                  constant float &yMin [[buffer(4)]],
+                                                  constant float &yMax [[buffer(5)]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
-    half gray = dot(rgbResult, kRec709Luma);
+    half grayVal = dot(rgbResult, kRec709Luma);
 //    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 509 && gid.y < 520) {
 //        shadowMask.write(white, uint2(gid.xy));
 //    } else {
 //        shadowMask.write(black, uint2(gid.xy));
 //    }
-    if (gid.x > colorRGBTexture.get_width()/2 && gray > half(min) && gray < half(max)) { //
-        shadowMask.write(white, uint2(gid.xy));
+    if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax) { //
+        if (grayVal > half(min) && grayVal < half(max)) {
+            shadowMask.write(white, uint2(gid.xy));
+        } else {
+            shadowMask.write(black, uint2(gid.xy));
+        }
     } else {
-        shadowMask.write(black, uint2(gid.xy));
+        shadowMask.write(gray, uint2(gid.xy));
     }
 }
 
@@ -615,7 +623,7 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 
 bool occupied(float m, float n) {
     //return true;
-    return m > 2;
+    return m > 0;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
