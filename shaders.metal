@@ -465,7 +465,7 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
             
             //ins[0] = (vmin.x - ray.origin.x) / ray.direction.x;
             if (tmin < 0) tmin = 0;
-
+            
             float3 start = ray.origin + tmin * ray.direction;
             
             float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x);
@@ -523,9 +523,6 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
             float tDeltaZ    = voxelSizeZ / abs(ray.direction.z);
                     
             while ((x < voxelCount.x) && (x >= 0) && (y < voxelCount.y) && (y >= 0) && (z < voxelCount.z) && (z >= 0)) {
-                // add 1 to value
-                //ins[0] = 5;
-                //atomic_fetch_add_explicit(&ins[uint(0)], 1, memory_order_relaxed);
                 // do in and out count
                 if (ray.type == SHADOW) {
                     atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
@@ -550,6 +547,7 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
                     }
                 }
             }
+            //atomic_fetch_add_explicit(&ins[0], tmin, memory_order_relaxed);
         }
     }
 }
