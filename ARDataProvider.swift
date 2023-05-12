@@ -102,6 +102,8 @@ final class ARProvider: ARDataReceiver {
     let destDepthTexture: MTLTexture
     let voxelIns: MTLBuffer
     let voxelOuts: MTLBuffer
+    let voxelInsTemp: MTLBuffer
+    let voxelOutsTemp: MTLBuffer
     let vertBuffer: MTLBuffer
     let indBuffer: MTLBuffer
     let destConfTexture: MTLTexture
@@ -277,6 +279,7 @@ final class ARProvider: ARDataReceiver {
     let LightSourceRGBToTexturePipelineComputeState: MTLComputePipelineState?
     let rayPipelineComputeState: MTLComputePipelineState?
     let intersectPipeline: MTLComputePipelineState?
+    let addInsOutsPipeline: MTLComputePipelineState?
     let populateVoxelPipeline: MTLComputePipelineState?
     
     // Create an empty texture.
@@ -327,6 +330,13 @@ final class ARProvider: ARDataReceiver {
             intersectPipeline = try metalDevice.makeComputePipelineState(descriptor: intersectDescriptor,
                                                                    options: [],
                                                                          reflection: nil)
+            let addInsOutDescriptor = MTLComputePipelineDescriptor()
+            addInsOutDescriptor.threadGroupSizeIsMultipleOfThreadExecutionWidth = true
+            addInsOutDescriptor.computeFunction = lib.makeFunction(name: "addInsOuts")
+            addInsOutsPipeline = try metalDevice.makeComputePipelineState(descriptor: addInsOutDescriptor,
+                                                                         options: [],
+                                                                               reflection: nil)
+                  
             let populateVoxelDesc = MTLComputePipelineDescriptor()
             populateVoxelDesc.threadGroupSizeIsMultipleOfThreadExecutionWidth = true
             populateVoxelDesc.computeFunction = lib.makeFunction(name: "samplePopulateVoxels")
@@ -368,6 +378,8 @@ final class ARProvider: ARDataReceiver {
             colorRGBMasked.texture = colorRGBMaskedTexture
             voxelIns = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
             voxelOuts = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
+            voxelInsTemp = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
+            voxelOutsTemp = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size * voxelsPerSide * voxelsPerSide * voxelsPerSide)!
 //
 //            let w: Float32 = 0.05
 //            let h: Float32 = 0.05
@@ -433,9 +445,9 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
-        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
-        print("wc")
-        print(worldCoords)
+//        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
+//        print("wc")
+//        print(worldCoords)
     }
     
     func rayTraceLastFrame() {
@@ -484,8 +496,7 @@ final class ARProvider: ARDataReceiver {
         print("origin, dir")
         print(rayOrig.contents().load(as: simd_float3.self))
         print(rayDir.contents().load(as: simd_float3.self))
-        
-        // do intersection
+
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         
@@ -496,8 +507,8 @@ final class ARProvider: ARDataReceiver {
 
         // debug, look at ray data
         computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)
-        computeEncoder.setBuffer(voxelIns, offset: 0, index: 1)
-        computeEncoder.setBuffer(voxelOuts, offset: 0, index: 2)
+        computeEncoder.setBuffer(voxelInsTemp, offset: 0, index: 1)
+        computeEncoder.setBuffer(voxelOutsTemp, offset: 0, index: 2)
         computeEncoder.setBytes(&origDepthWidth, length: MemoryLayout<UInt32>.stride, index: 3)
         computeEncoder.setComputePipelineState(intersectPipeline!)
         // Launch threads
@@ -506,19 +517,31 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
-        print("done")
-//        for i in 0..<(30*30*30) {
-//            let vertexPointer = voxelOuts.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
-//            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
-//            if vert != 0 {
-//                print("I: " + String(i))
-//                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
-//            }
-//        }
+        
+        // do m + n count
+        guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
+        guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        
+        threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
+        threadsHeight = threadsPerThreadgroup.height
+        threadsWidth = threadsPerThreadgroup.width
+        threadgroups = MTLSize(width: 2, height: 2, depth: 30)
 
+        // debug, look at ray data
+        computeEncoder.setBuffer(voxelInsTemp, offset: 0, index: 0)
+        computeEncoder.setBuffer(voxelOutsTemp, offset: 0, index: 1)
+        computeEncoder.setBuffer(voxelIns, offset: 0, index: 2)
+        computeEncoder.setBuffer(voxelOuts, offset: 0, index: 3)
+        computeEncoder.setComputePipelineState(addInsOutsPipeline!)
+        // Launch threads
+        computeEncoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
+        // End the encoder
+        computeEncoder.endEncoding()
+        cmdBuffer.commit()
+        cmdBuffer.waitUntilCompleted()
+        print("done")
         for i in 0..<(30*30*30) {
-            
-            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+            let vertexPointer = voxelOuts.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
             let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
             if vert != 0 {
                 print("I: " + String(i))

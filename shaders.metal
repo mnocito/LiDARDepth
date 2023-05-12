@@ -428,7 +428,7 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
         float3 maskWorldPos = coordsToWorld(cameraIntrinsics, gid, depthTexture.read(gid).x);
         ray.origin = startingPos;
         ray.origin.y = -ray.origin.y;
-        ray.direction = normalize(float3(1, 0.0001, 0.0001));//normalize(maskWorldPos - startingPos);
+        ray.direction = /*normalize(float3(1, 0.0001, 0.0001));*/normalize(maskWorldPos - startingPos);
         orig = ray.origin;
         dir = ray.direction;
         if (isWhite(rgbResult)) {
@@ -632,12 +632,12 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 
 bool occupied(float m, float n) {
     //return true;
-    return m > 0;
+    //return m > 0;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
     float p1 = 0.05; // Prior probability that any voxel is occupied
-    float T = 0.9; // Probabilitzy threshold to decide that voxel is occupied
+    float T = 0.95; // Probabilitzy threshold to decide that voxel is occupied
     float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
     return probablisticOccupancy > T;
 }
@@ -668,3 +668,28 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
     }
 }
 
+
+// add ins and outs
+kernel void addInsOuts(          device uint *insTemp [[buffer(0)]],
+                                 device uint *outsTemp [[buffer(1)]], // can i make this non-atomic? think so
+                                 device uint *ins [[buffer(2)]],
+                                 device uint *outs [[buffer(3)]],
+                                 uint3 gid [[thread_position_in_grid]]) {
+    uint x = gid.x;
+    uint y = gid.y;
+    uint z = gid.z;
+    float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+    if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for thread vals to be larger than our bounds
+        return;
+    }
+    float index = x + y * voxelCount.x + z * voxelCount.x * voxelCount.y;
+    uint m = insTemp[uint(index)];
+    uint n = outsTemp[uint(index)];
+    if (m > 0 && n == 0) {
+        ins[uint(index)] += 1;
+    } else if (m == 0 && n > 0) {
+        outs[uint(index)] += 1;
+    }
+    insTemp[uint(index)] = 0;
+    outsTemp[uint(index)] = 0;
+}
