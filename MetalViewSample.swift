@@ -157,9 +157,9 @@ struct MetalDepthView: View {
                 }.padding(.horizontal)
                 HStack {
                     Text("Min x value")
-                    Slider(value: $arProvider.xMin, in: 960...1920, step: 1.0)
+                    Slider(value: $arProvider.xMin, in: 0...1920, step: 1.0)
                     Text("Max x value")
-                    Slider(value: $arProvider.xMax, in: 960...1920, step: 1.0)
+                    Slider(value: $arProvider.xMax, in: 0...1920, step: 1.0)
                     Text("Min y value")
                     Slider(value: $arProvider.yMin, in: 0...1440, step: 1.0)
                     Text("Max y value")

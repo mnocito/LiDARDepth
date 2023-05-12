@@ -292,7 +292,7 @@ kernel void getLightSource(
                                                       )
 {
     float3 rgbResult = colorRGBTexture.read(gid).rgb;
-    if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {
+    if (rgbResult[0] > .925 && rgbResult[1] > .925 && rgbResult[2] > .925) {
         atomic_fetch_add_explicit(&x, uint(gid.x), memory_order_relaxed);
         atomic_fetch_add_explicit(&y, uint(gid.y), memory_order_relaxed);
         atomic_fetch_add_explicit(&counter, 1, memory_order_relaxed);
@@ -320,7 +320,8 @@ kernel void getWorldCoords(
 constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722);
 constant half4 white = half4(1.0h, 1.0h, 1.0h, 1.0h);
 constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
-constant half4 gray = half4(0.5h, 0.5h, 0.5h, 1.0h);
+constant half4 red = half4(1.0h, 0.0h, 0.0h, 1.0h);
+constant half4 gray = half4(0.001h, 0.001h, 0.001h, 1.0h);
 
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
@@ -348,7 +349,15 @@ kernel void getShadowMask(
             shadowMask.write(black, uint2(gid.xy));
         }
     } else {
-        shadowMask.write(gray, uint2(gid.xy));
+        uint border = 10;
+        if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yMin - border && gid.y < yMax + border)) ||
+            ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yMin - border && gid.y < yMax + border)) ||
+            ((gid.y < yMin && gid.y > yMin - border) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
+            ((gid.y > yMax && gid.y < yMax + border) && ( gid.x > xMin - border && gid.x < xMax + border)))  {
+            shadowMask.write(red, uint2(gid.xy));
+        } else  {
+            shadowMask.write(gray, uint2(gid.xy));
+        }
     }
 }
 
@@ -368,7 +377,7 @@ kernel void getLightSourceTexture (
     bool withinXRange = pointCenter.x < pointSize && pointCenter.x > -pointSize;
     bool withinYRange = pointCenter.y < pointSize && pointCenter.y > -pointSize;
     if ((xCenter != 0 && yCenter != 0) && withinXRange && withinYRange) {
-        outTexture.write(white, gid.xy);
+        outTexture.write(red, gid.xy);
     } else {
         if (rgbResult[0] > .9 && rgbResult[1] > .9 && rgbResult[2] > .9) {
              outTexture.write(half4(0, 0, 1.0h, 1.0h), gid.xy);
@@ -395,8 +404,8 @@ kernel void LiDARToVerts(
     vert = coordsToWorld(cameraIntrinsics, gid, depth);
 }
 
-bool isGray(half3 rgbResult) {
-    return rgbResult.r == gray.r && rgbResult.g == gray.g && rgbResult.b == gray.b;
+bool outsideMaskBoundaries(half3 rgbResult) {
+    return (rgbResult.r == gray.r && rgbResult.g == gray.g && rgbResult.b == gray.b) || (rgbResult.r == red.r && rgbResult.g == red.g && rgbResult.b == red.b);
 }
 
 bool isWhite(half3 rgbResult) {
@@ -415,7 +424,7 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
 {
     half3 rgbResult = maskTexture.read(gid).rgb;
     device Ray &ray = rays[gid.x + gid.y * maskTexture.get_width()];
-    if (!isGray(rgbResult)) {
+    if (!outsideMaskBoundaries(rgbResult)) {
         float3 maskWorldPos = coordsToWorld(cameraIntrinsics, gid, depthTexture.read(gid).x);
         ray.origin = startingPos;
         ray.direction = normalize(maskWorldPos - startingPos);

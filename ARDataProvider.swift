@@ -74,9 +74,9 @@ final class ARProvider: ARDataReceiver {
     var minGray: simd_float1 = 0.01
     var maxGray: simd_float1 = 0.3
     var xMin: simd_float1 = 960
-    var xMax: simd_float1 = 1920
-    var yMin: simd_float1 = 0
-    var yMax: simd_float1 = 1440
+    var xMax: simd_float1 = 1920 - 10
+    var yMin: simd_float1 = 0 + 10
+    var yMax: simd_float1 = 1440 - 10
     var blurSigma: Float = 8
     var calibrateMask = false
     
