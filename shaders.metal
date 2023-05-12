@@ -36,9 +36,9 @@ struct Ray {
 };
 
 
-constant float3 vmin = float3(-0.15f, -0.15f, 0.5f);
+constant float3 vmin = float3(-0.15f, -0.22f, 0.95f);
 
-constant float3 vmax = float3(0.15f, 0.15f, 0.8f);
+constant float3 vmax = float3(0.15f, 0.08f, 1.25f);
 
 constant float3 boxSize = abs(vmax - vmin);
 
@@ -427,7 +427,8 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
     if (!outsideMaskBoundaries(rgbResult)) {
         float3 maskWorldPos = coordsToWorld(cameraIntrinsics, gid, depthTexture.read(gid).x);
         ray.origin = startingPos;
-        ray.direction = normalize(maskWorldPos - startingPos);
+        ray.origin.y = -ray.origin.y;
+        ray.direction = float3(1, 0, 0);//normalize(maskWorldPos - startingPos);
         orig = ray.origin;
         dir = ray.direction;
         if (isWhite(rgbResult)) {
@@ -454,9 +455,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
         if (!isnan(tmin)) {
             
-            float3 vmin = float3(-0.15f, -0.15f, 0.5f);
+            float3 vmin = float3(-0.15f, -0.22f, 0.95f);
 
-            float3 vmax = float3(0.15f, 0.15f, 0.8f);
+            float3 vmax = float3(0.15f, 0.08f, 1.25f);
             
             float3 boxSize = abs(vmax - vmin);
 
@@ -554,10 +555,10 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 }
 
 // create cube geometry
-void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
-    float3 vmin = float3(-0.15f, -0.15f, 0.5f);
+void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index, device float3 &pos) {
+    float3 vmin = float3(-0.15f, -0.22f, 0.95f);
 
-    float3 vmax = float3(0.15f, 0.15f, 0.8f);
+    float3 vmax = float3(0.15f, 0.08f, 1.25f);
 
     float3 boxSize = abs(vmax - vmin);
 
@@ -577,6 +578,7 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     float y = -(yIndex * voxelSize + vmin.y + voxelHalfSize); // dont flip y?
     float z = -(zIndex * voxelSize + vmin.z + voxelHalfSize);
     // top 4 vertices
+    pos = float3(x - w, y - h, z - l);
     vertexData[vertexIndex] = float3(x - w, y - h, z - l);
     vertexData[vertexIndex+1] = float3(x + w, y - h, z - l);
     vertexData[vertexIndex+2] = float3(x + w, y - h, z + l);
@@ -647,6 +649,7 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
                                  device uint *indexData [[buffer(1)]],
                                  device uint *ins [[buffer(2)]], // can i make this non-atomic? think so
                                  device uint *outs [[buffer(3)]],
+                                 device float3 &pos [[buffer(4)]],
                                  uint3 gid [[thread_position_in_grid]]) {
     uint x = gid.x;
     uint y = gid.y;
@@ -663,7 +666,7 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
     float m = float(ins[uint(index)]);
     float n = float(outs[uint(index)]);
     if (occupied(m, n)) {
-        populateGeometryBuffersAtIndex(vertexData, indexData, index);
+        populateGeometryBuffersAtIndex(vertexData, indexData, index, pos);
     }
 }
 

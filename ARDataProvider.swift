@@ -186,9 +186,9 @@ final class ARProvider: ARDataReceiver {
         yInt = yInt/counterInt
 //        xInt = 391
 //        yInt = 509
-        print("xy")
-        print(xInt)
-        print(yInt)
+//        print("xy")
+//        print(xInt)
+//        print(yInt)
         var cameraIntrinsics = lastArData!.cameraIntrinsics
         let scaleRes = simd_float2(x: Float(lastArData!.cameraResolution.width) / Float(origDepthWidth),
                                    y: Float(lastArData!.cameraResolution.height) / Float(origDepthHeight))
@@ -197,8 +197,8 @@ final class ARProvider: ARDataReceiver {
 
         cameraIntrinsics[2][0] /= scaleRes.x
         cameraIntrinsics[2][1] /= scaleRes.y
-        print("intr")
-        print(cameraIntrinsics)
+//        print("intr")
+//        print(cameraIntrinsics)
         // send coordinate and rgbtexture functions to gpu (messy code right now, sorry)
         let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { throw MTLCommandBufferError(.invalidResource) }
@@ -232,6 +232,7 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         let worldCoords = floatBuff.contents().load(as: simd_float3.self)
+        //print(worldCoords)
         let lightSourceContent = MetalTextureContent()
         lightSourceContent.texture = lightSourceTexture
         return LightSource(texture: lightSourceContent, worldCoords: worldCoords)
@@ -416,7 +417,8 @@ final class ARProvider: ARDataReceiver {
     }
     
     func populateVoxels() {
-        // populate voxel test
+        // populate voxels
+        let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         computeEncoder.setComputePipelineState(populateVoxelPipeline!)
@@ -426,10 +428,14 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.setBuffer(indBuffer, offset: 0, index: 1)
         computeEncoder.setBuffer(voxelIns, offset: 0, index: 2)
         computeEncoder.setBuffer(voxelOuts, offset: 0, index: 3)
+        computeEncoder.setBuffer(floatBuff, offset: 0, index: 4)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
+        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
+        print("wc")
+        print(worldCoords)
     }
     
     func rayTraceLastFrame() {
@@ -442,8 +448,8 @@ final class ARProvider: ARDataReceiver {
 
         cameraIntrinsics[2][0] /= scaleRes.x
         cameraIntrinsics[2][1] /= scaleRes.y
-        print("intr")
-        print(cameraIntrinsics)
+//        print("intr")
+//        print(cameraIntrinsics)
         
         // create intersector/acceleration structure
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
@@ -501,15 +507,23 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         print("done")
-        for i in 0..<(30*30*30) {
-            let vertexPointer = voxelOuts.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
-            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
-            if vert != 0 {
-                print("I: " + String(i))
-                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
-            }
-        }
+//        for i in 0..<(30*30*30) {
+//            let vertexPointer = voxelOuts.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+//            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
+//            if vert != 0 {
+//                print("I: " + String(i))
+//                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
+//            }
+//        }
 
+//        for i in 0..<(30*30*30) {
+//            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+//            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
+//            if vert != 0 {
+//                print("I: " + String(i))
+//                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
+//            }
+//        }
         
     }
     // Save a reference to the current AR data and process it.
