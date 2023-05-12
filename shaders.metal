@@ -428,7 +428,7 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
         float3 maskWorldPos = coordsToWorld(cameraIntrinsics, gid, depthTexture.read(gid).x);
         ray.origin = startingPos;
         ray.origin.y = -ray.origin.y;
-        ray.direction = float3(1, 0, 0);//normalize(maskWorldPos - startingPos);
+        ray.direction = normalize(float3(1, 0.0001, 0.0001));//normalize(maskWorldPos - startingPos);
         orig = ray.origin;
         dir = ray.direction;
         if (isWhite(rgbResult)) {
@@ -469,8 +469,8 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
             float3 start = ray.origin + tmin * ray.direction;
             
             float x = floor(((start.x-vmin.x)/boxSize.x)*voxelCount.x);
-            float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.x);
-            float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.x);
+            float y = floor(((start.y-vmin.y)/boxSize.y)*voxelCount.y);
+            float z = floor(((start.z-vmin.z)/boxSize.z)*voxelCount.z);
             float tVoxelX = 0;
             float tVoxelY = 0;
             float tVoxelZ = 0;
@@ -564,9 +564,9 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     
     uint vertexIndex = uint(index) * 8; // 8 vertices in a cube
     uint indiceIndex = uint(index) * 36; // 12 triangles in a cube triangle strip, 3 indices per strip
-    float zIndex = fmod(index, voxelCount.z);
-    float yIndex = fmod((index / voxelCount.z), voxelCount.y);
-    float xIndex = index / (voxelCount.y * voxelCount.z);
+    float xIndex = fmod(index, voxelCount.x);
+    float yIndex = fmod((index / voxelCount.x), voxelCount.y);
+    float zIndex = floor(index / (voxelCount.y * voxelCount.z));
     float voxelSize = boxSize.x / voxelCount.x;
     float voxelHalfSize = voxelSize / 2.0;
     float w = voxelHalfSize;
