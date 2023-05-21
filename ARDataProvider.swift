@@ -77,7 +77,7 @@ final class ARProvider: ARDataReceiver {
     var xMax: simd_float1 = 1920 - 10
     var yMin: simd_float1 = 0 + 10
     var yMax: simd_float1 = 1440 - 10
-    var blurSigma: Float = 8
+    var blurSigma: Float = 5
     var calibrateMask = false
     
     
@@ -112,6 +112,7 @@ final class ARProvider: ARDataReceiver {
     let colorRGBTextureDownscaled: MTLTexture
     let colorRGBTextureDownscaledLowRes: MTLTexture
     let colorRGBTextureBlurred: MTLTexture
+    let colorRGBTextureBlurredDownscaled: MTLTexture
     var blurKernel: MPSImageGaussianBlur!
     
     // Enable or disable depth upsampling.
@@ -133,25 +134,29 @@ final class ARProvider: ARDataReceiver {
         blurKernel.encode(commandBuffer: cmdBuffer,
                       sourceTexture: colorRGBTexture,
                       destinationTexture: colorRGBTextureBlurred)
+        mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: colorRGBTextureBlurred,
+                               destinationTexture: colorRGBTextureBlurredDownscaled)
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
+        var xMinInt = UInt32(xMin/7.5)
+        var xMaxInt = UInt32(xMax/7.5)
+        var yMinInt = UInt32(yMin/7.5)
+        var yMaxInt = UInt32(yMax/7.5)
         computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
-        computeEncoder.setTexture(colorRGBTextureBlurred, index: 0)
-        computeEncoder.setTexture(maskTexture, index: 1)
+        computeEncoder.setTexture(colorRGBTextureBlurredDownscaled, index: 0)
+        computeEncoder.setTexture(maskTextureDownscaled, index: 1)
         computeEncoder.setBytes(&minGray, length: MemoryLayout<simd_float1>.stride, index: 0)
         computeEncoder.setBytes(&maxGray, length: MemoryLayout<simd_float1>.stride, index: 1)
-        computeEncoder.setBytes(&xMin, length: MemoryLayout<UInt32>.stride, index: 2)
-        computeEncoder.setBytes(&xMax, length: MemoryLayout<UInt32>.stride, index: 3)
-        computeEncoder.setBytes(&yMin, length: MemoryLayout<UInt32>.stride, index: 4)
-        computeEncoder.setBytes(&yMax, length: MemoryLayout<UInt32>.stride, index: 5)
+        computeEncoder.setBytes(&xMinInt, length: MemoryLayout<UInt32>.stride, index: 2)
+        computeEncoder.setBytes(&xMaxInt, length: MemoryLayout<UInt32>.stride, index: 3)
+        computeEncoder.setBytes(&yMinInt, length: MemoryLayout<UInt32>.stride, index: 4)
+        computeEncoder.setBytes(&yMaxInt, length: MemoryLayout<UInt32>.stride, index: 5)
         let threadgroupSize = MTLSizeMake(RGBToMaskPipelineComputeState!.threadExecutionWidth,
                                           RGBToMaskPipelineComputeState!.maxTotalThreadsPerThreadgroup / RGBToMaskPipelineComputeState!.threadExecutionWidth, 1)
-        let threadgroupCount = MTLSize(width: Int(ceil(Float(colorRGBTexture.width) / Float(threadgroupSize.width))),
-                                       height: Int(ceil(Float(colorRGBTexture.height) / Float(threadgroupSize.height))),
+        let threadgroupCount = MTLSize(width: Int(ceil(Float(origDepthWidth) / Float(threadgroupSize.width))),
+                                       height: Int(ceil(Float(origDepthHeight) / Float(threadgroupSize.height))),
                                        depth: 1)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
-        mpsScaleFilter?.encode(commandBuffer: cmdBuffer, sourceTexture: maskTexture,
-                               destinationTexture: maskTextureDownscaled)
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
     }
@@ -371,6 +376,8 @@ final class ARProvider: ARDataReceiver {
                                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             colorRGBTextureBlurred = ARProvider.createTexture(metalDevice: metalDevice, width: origColorWidth, height: origColorHeight,
                                                        usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
+            colorRGBTextureBlurredDownscaled = ARProvider.createTexture(metalDevice: metalDevice, width: origDepthWidth, height: origDepthHeight,
+                                                                       usage: [.shaderRead, .shaderWrite], pixelFormat: .rgba32Float)
             upscaledCoef.texture = coefTexture
             upscaledConfidence.texture = destConfTexture
             downscaledRGB.texture = colorRGBTextureDownscaled
@@ -430,7 +437,7 @@ final class ARProvider: ARDataReceiver {
     
     func populateVoxels() {
         // populate voxels
-        let floatBuff = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
+        let occupancies = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.stride * voxelsPerSide * voxelsPerSide * voxelsPerSide, options: [])!
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         computeEncoder.setComputePipelineState(populateVoxelPipeline!)
@@ -440,11 +447,27 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.setBuffer(indBuffer, offset: 0, index: 1)
         computeEncoder.setBuffer(voxelIns, offset: 0, index: 2)
         computeEncoder.setBuffer(voxelOuts, offset: 0, index: 3)
-        computeEncoder.setBuffer(floatBuff, offset: 0, index: 4)
+        computeEncoder.setBuffer(occupancies, offset: 0, index: 4)
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
+        var count = 0
+        for i in 0..<(30*30*30) {
+            let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
+            let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
+            if occupancy[0] > 0.95 {
+                let inPtr = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+                let inVert = inPtr.assumingMemoryBound(to: UInt32.self).pointee
+                if inVert != 0 {
+                    print("I: " + String(i))
+                    print(occupancy)
+                    count = count + 1
+                }
+            }
+        }
+        print("count")
+        print(count)
 //        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
 //        print("wc")
 //        print(worldCoords)
@@ -479,6 +502,9 @@ final class ARProvider: ARDataReceiver {
         let originBuff = metalDevice.makeBuffer(bytes: &origin, length: MemoryLayout<simd_float3>.size, options: [])!
         let rayOrig = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
         let rayDir = metalDevice.makeBuffer(length: MemoryLayout<simd_float3>.size, options: [])!
+        let rayCount = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size, options: [])!
+        let rayOutCount = metalDevice.makeBuffer(length: MemoryLayout<UInt32>.size, options: [])!
+
         computeEncoder.setTexture(ShadowMasks.last!.depthTexture, index: 0)
         computeEncoder.setTexture(ShadowMasks.last!.mask.texture, index: 1)
         computeEncoder.setBuffer(rayBuffer, offset: 0, index: 0)
@@ -486,6 +512,8 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.setBytes(&cameraIntrinsics, length: MemoryLayout<matrix_float3x3>.stride, index: 2)
         computeEncoder.setBuffer(rayOrig, offset: 0, index: 3)
         computeEncoder.setBuffer(rayDir, offset: 0, index: 4)
+        computeEncoder.setBuffer(rayCount, offset: 0, index: 5)
+        computeEncoder.setBuffer(rayOutCount, offset: 0, index: 6)
         computeEncoder.setComputePipelineState(rayPipelineComputeState!)
         // Launch threads
         computeEncoder.dispatchThreadgroups(threadgroups, threadsPerThreadgroup: threadsPerThreadgroup)
@@ -496,6 +524,11 @@ final class ARProvider: ARDataReceiver {
         print("origin, dir")
         print(rayOrig.contents().load(as: simd_float3.self))
         print(rayDir.contents().load(as: simd_float3.self))
+        print("ray in count")
+        print(rayCount.contents().load(as: UInt32.self))
+        print("ray out count")
+        print(rayOutCount.contents().load(as: UInt32.self))
+        print((Int(xMax/7.5) - Int(xMin/7.5)) * (Int(yMax/7.5) - Int(yMin/7.5)))
 
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
@@ -540,14 +573,14 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         print("done")
-        for i in 0..<(30*30*30) {
-            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
-            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
-            if vert != 0 {
-                print("I: " + String(i))
-                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
-            }
-        }
+//        for i in 0..<(30*30*30) {
+//            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+//            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
+//            if vert != 0 {
+//                print("I: " + String(i))
+//                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
+//            }
+//        }
         
     }
     // Save a reference to the current AR data and process it.
@@ -592,21 +625,23 @@ final class ARProvider: ARDataReceiver {
             blurKernel.encode(commandBuffer: cmdBuffer,
                           sourceTexture: colorRGBTexture,
                           destinationTexture: colorRGBTextureBlurred)
+            var xMinInt = UInt32(xMin)
+            var xMaxInt = UInt32(xMax)
+            var yMinInt = UInt32(yMin)
+            var yMaxInt = UInt32(yMax)
             guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
             computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
             computeEncoder.setTexture(colorRGBTextureBlurred, index: 0)
             computeEncoder.setTexture(colorRGBMaskedTexture, index: 1)
             computeEncoder.setBytes(&minGray, length: MemoryLayout<simd_float1>.stride, index: 0)
             computeEncoder.setBytes(&maxGray, length: MemoryLayout<simd_float1>.stride, index: 1)
-            computeEncoder.setBytes(&xMin, length: MemoryLayout<UInt32>.stride, index: 2)
-            computeEncoder.setBytes(&xMax, length: MemoryLayout<UInt32>.stride, index: 3)
-            computeEncoder.setBytes(&yMin, length: MemoryLayout<UInt32>.stride, index: 4)
-            computeEncoder.setBytes(&yMax, length: MemoryLayout<UInt32>.stride, index: 5)
+            computeEncoder.setBytes(&xMinInt, length: MemoryLayout<UInt32>.stride, index: 2)
+            computeEncoder.setBytes(&xMaxInt, length: MemoryLayout<UInt32>.stride, index: 3)
+            computeEncoder.setBytes(&yMinInt, length: MemoryLayout<UInt32>.stride, index: 4)
+            computeEncoder.setBytes(&yMaxInt, length: MemoryLayout<UInt32>.stride, index: 5)
             computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
             computeEncoder.endEncoding()
             cmdBuffer.commit()
-            /// This will trigger when finish writing 1 image to photo library
-            //UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
         }
         // maybe don't need these lines
         colorRGB.texture = colorRGBTexture
@@ -626,54 +661,4 @@ final class ARProvider: ARDataReceiver {
         maxGray = maxGrayVal
     }
 
-}
-
-class ImageSaver: NSObject {
-    var successHandler: (() -> Void)?
-    var errorHandler: ((Error) -> Void)?
-
-    func writeToPhotoAlbum(image: UIImage) {
-        UIImageWriteToSavedPhotosAlbum(image, self, #selector(saveCompleted), nil)
-    }
-
-    @objc func saveCompleted(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
-        if let error = error {
-            errorHandler?(error)
-        } else {
-            successHandler?()
-        }
-    }
-}
-
-extension MTLTexture {
-
-    func bytes() -> UnsafeMutableRawPointer {
-        let width = self.width
-        let height   = self.height
-        let rowBytes = self.width * 4
-        let p = malloc(width * height * 4)
-
-        self.getBytes(p!, bytesPerRow: rowBytes, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
-
-        return p!
-    }
-
-    func toImage() -> CGImage? {
-        let p = bytes()
-
-        let pColorSpace = CGColorSpaceCreateDeviceRGB()
-
-        let rawBitmapInfo = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
-        let bitmapInfo:CGBitmapInfo = CGBitmapInfo(rawValue: rawBitmapInfo)
-
-        let selftureSize = self.width * self.height * 4
-        let rowBytes = self.width * 4
-        let releaseMaskImagePixelData: CGDataProviderReleaseDataCallback = { (info: UnsafeMutableRawPointer?, data: UnsafeRawPointer, size: Int) -> () in
-            return
-        }
-        let provider = CGDataProvider(dataInfo: nil, data: p, size: selftureSize, releaseData: releaseMaskImagePixelData)
-        let cgImageRef = CGImage(width: self.width, height: self.height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: rowBytes, space: pColorSpace, bitmapInfo: bitmapInfo, provider: provider!, decode: nil, shouldInterpolate: true, intent: CGColorRenderingIntent.defaultIntent)!
-
-        return cgImageRef
-    }
 }

@@ -321,17 +321,17 @@ constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722);
 constant half4 white = half4(1.0h, 1.0h, 1.0h, 1.0h);
 constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
 constant half4 red = half4(1.0h, 0.0h, 0.0h, 1.0h);
-constant half4 gray = half4(0.001h, 0.001h, 0.001h, 1.0h);
+constant half4 gray = half4(0.0h, 0.001h, 0.001h, 1.0h);
 
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
                                                   texture2d<half, access::write> shadowMask [[ texture(1) ]],
                                                   constant float &min [[buffer(0)]],
                                                   constant float &max [[buffer(1)]],
-                                                  constant float &xMin [[buffer(2)]],
-                                                  constant float &xMax [[buffer(3)]],
-                                                  constant float &yMin [[buffer(4)]],
-                                                  constant float &yMax [[buffer(5)]],
+                                                  constant uint &xMin [[buffer(2)]],
+                                                  constant uint &xMax [[buffer(3)]],
+                                                  constant uint &yMin [[buffer(4)]],
+                                                  constant uint &yMax [[buffer(5)]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 {
@@ -349,7 +349,7 @@ kernel void getShadowMask(
             shadowMask.write(black, uint2(gid.xy));
         }
     } else {
-        uint border = 10;
+        uint border = 5;
         if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yMin - border && gid.y < yMax + border)) ||
             ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yMin - border && gid.y < yMax + border)) ||
             ((gid.y < yMin && gid.y > yMin - border) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
@@ -420,6 +420,8 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
                       constant float3x3 &cameraIntrinsics [[buffer(2)]],
                       device float3 &orig [[buffer(3)]],
                       device float3 &dir [[buffer(4)]],
+                      device atomic_uint &count [[buffer(5)]],
+                      device atomic_uint &countout [[buffer(6)]],
                       uint2 gid [[thread_position_in_grid]])
 {
     half3 rgbResult = maskTexture.read(gid).rgb;
@@ -433,8 +435,10 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
         dir = ray.direction;
         if (isWhite(rgbResult)) {
             ray.type = SHADOW;
+            atomic_fetch_add_explicit(&count, 1, memory_order_relaxed);
         } else {
             ray.type = LIGHT;
+            atomic_fetch_add_explicit(&countout, 1, memory_order_relaxed);
         }
     } else {
         ray.type = OUT_OF_AREA;
@@ -526,7 +530,7 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
                 // do in and out count
                 if (ray.type == SHADOW) {
                     atomic_fetch_add_explicit(&ins[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
-                } else {
+                } else if (ray.type == LIGHT) {
                     atomic_fetch_add_explicit(&outs[uint(x + y * voxelCount.x + z * voxelCount.x * voxelCount.y)], 1, memory_order_relaxed);
                 }
                 if (tMaxX < tMaxY) {
@@ -553,7 +557,7 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 }
 
 // create cube geometry
-void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index, device float3 &pos) {
+void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
     float3 vmin = float3(-0.15f, -0.22f, 0.75f);
 
     float3 vmax = float3(0.15f, 0.08f, 1.05f);
@@ -575,8 +579,6 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     float x = xIndex * voxelSize + vmin.x + voxelHalfSize;
     float y = -(yIndex * voxelSize + vmin.y + voxelHalfSize); // dont flip y?
     float z = -(zIndex * voxelSize + vmin.z + voxelHalfSize);
-    // top 4 vertices
-    pos = float3(x - w, y - h, z - l);
     vertexData[vertexIndex] = float3(x - w, y - h, z - l);
     vertexData[vertexIndex+1] = float3(x + w, y - h, z - l);
     vertexData[vertexIndex+2] = float3(x + w, y - h, z + l);
@@ -632,14 +634,23 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 
 bool occupied(float m, float n) {
     //return true;
-    return m > 0;
+    //return m > 0;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
     float p1 = 0.1; // Prior probability that any voxel is occupied
-    float T = 0.9; // Probability threshold to decide that voxel is occupied
+    float T = 0.95; // Probability threshold to decide that voxel is occupied
     float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
-    return probablisticOccupancy > T;
+    return probablisticOccupancy > T && m > 0.0f;
+}
+
+float occupancy(float m, float n) {
+    float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
+    float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
+    float p0 = 0.9; // Prior probability that any voxel is empty
+    float p1 = 0.1; // Prior probability that any voxel is occupied
+    float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
+    return probablisticOccupancy;
 }
 
 // Populate voxels for display.
@@ -647,7 +658,7 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
                                  device uint *indexData [[buffer(1)]],
                                  device uint *ins [[buffer(2)]], // can i make this non-atomic? think so
                                  device uint *outs [[buffer(3)]],
-                                 device float3 &pos [[buffer(4)]],
+                                 device float3 *occupancies [[buffer(4)]],
                                  uint3 gid [[thread_position_in_grid]]) {
     uint x = gid.x;
     uint y = gid.y;
@@ -663,8 +674,9 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
     float index = x + y * voxelCount.x + z * voxelCount.x * voxelCount.y;
     float m = float(ins[uint(index)]);
     float n = float(outs[uint(index)]);
+    occupancies[uint(index)] = float3(occupancy(m, n), m, n);
     if (occupied(m, n)) {
-        populateGeometryBuffersAtIndex(vertexData, indexData, index, pos);
+        populateGeometryBuffersAtIndex(vertexData, indexData, index);
     }
 }
 
