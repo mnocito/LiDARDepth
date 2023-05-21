@@ -541,7 +541,7 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.waitUntilCompleted()
         print("done")
         for i in 0..<(30*30*30) {
-            let vertexPointer = voxelOuts.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
             let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
             if vert != 0 {
                 print("I: " + String(i))
@@ -605,12 +605,14 @@ final class ARProvider: ARDataReceiver {
             computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
             computeEncoder.endEncoding()
             cmdBuffer.commit()
+            /// This will trigger when finish writing 1 image to photo library
+            //UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
         }
         // maybe don't need these lines
         colorRGB.texture = colorRGBTexture
         colorRGBMasked.texture = colorRGBMaskedTexture
     }
-    
+
     // workaround to perms errors in MetalViewSample
     func toggleCalibrateMask() {
         calibrateMask = !calibrateMask
@@ -623,5 +625,55 @@ final class ARProvider: ARDataReceiver {
     func setGrayscaleMax(maxGrayVal: simd_float1) {
         maxGray = maxGrayVal
     }
+
 }
 
+class ImageSaver: NSObject {
+    var successHandler: (() -> Void)?
+    var errorHandler: ((Error) -> Void)?
+
+    func writeToPhotoAlbum(image: UIImage) {
+        UIImageWriteToSavedPhotosAlbum(image, self, #selector(saveCompleted), nil)
+    }
+
+    @objc func saveCompleted(_ image: UIImage, didFinishSavingWithError error: Error?, contextInfo: UnsafeRawPointer) {
+        if let error = error {
+            errorHandler?(error)
+        } else {
+            successHandler?()
+        }
+    }
+}
+
+extension MTLTexture {
+
+    func bytes() -> UnsafeMutableRawPointer {
+        let width = self.width
+        let height   = self.height
+        let rowBytes = self.width * 4
+        let p = malloc(width * height * 4)
+
+        self.getBytes(p!, bytesPerRow: rowBytes, from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+
+        return p!
+    }
+
+    func toImage() -> CGImage? {
+        let p = bytes()
+
+        let pColorSpace = CGColorSpaceCreateDeviceRGB()
+
+        let rawBitmapInfo = CGImageAlphaInfo.noneSkipFirst.rawValue | CGBitmapInfo.byteOrder32Little.rawValue
+        let bitmapInfo:CGBitmapInfo = CGBitmapInfo(rawValue: rawBitmapInfo)
+
+        let selftureSize = self.width * self.height * 4
+        let rowBytes = self.width * 4
+        let releaseMaskImagePixelData: CGDataProviderReleaseDataCallback = { (info: UnsafeMutableRawPointer?, data: UnsafeRawPointer, size: Int) -> () in
+            return
+        }
+        let provider = CGDataProvider(dataInfo: nil, data: p, size: selftureSize, releaseData: releaseMaskImagePixelData)
+        let cgImageRef = CGImage(width: self.width, height: self.height, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: rowBytes, space: pColorSpace, bitmapInfo: bitmapInfo, provider: provider!, decode: nil, shouldInterpolate: true, intent: CGColorRenderingIntent.defaultIntent)!
+
+        return cgImageRef
+    }
+}

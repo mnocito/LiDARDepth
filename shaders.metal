@@ -36,9 +36,9 @@ struct Ray {
 };
 
 
-constant float3 vmin = float3(-0.15f, -0.22f, 0.95f);
+constant float3 vmin = float3(-0.15f, -0.22f, 0.75f);
 
-constant float3 vmax = float3(0.15f, 0.08f, 1.25f);
+constant float3 vmax = float3(0.15f, 0.08f, 1.05f);
 
 constant float3 boxSize = abs(vmax - vmin);
 
@@ -292,7 +292,7 @@ kernel void getLightSource(
                                                       )
 {
     float3 rgbResult = colorRGBTexture.read(gid).rgb;
-    if (rgbResult[0] > .925 && rgbResult[1] > .925 && rgbResult[2] > .925) {
+    if (rgbResult[0] > .995 && rgbResult[1] > .995 && rgbResult[2] > .995) {
         atomic_fetch_add_explicit(&x, uint(gid.x), memory_order_relaxed);
         atomic_fetch_add_explicit(&y, uint(gid.y), memory_order_relaxed);
         atomic_fetch_add_explicit(&counter, 1, memory_order_relaxed);
@@ -455,9 +455,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
         if (!isnan(tmin)) {
             
-            float3 vmin = float3(-0.15f, -0.22f, 0.95f);
+            float3 vmin = float3(-0.15f, -0.22f, 0.75f);
 
-            float3 vmax = float3(0.15f, 0.08f, 1.25f);
+            float3 vmax = float3(0.15f, 0.08f, 1.05f);
             
             float3 boxSize = abs(vmax - vmin);
 
@@ -554,9 +554,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
 // create cube geometry
 void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index, device float3 &pos) {
-    float3 vmin = float3(-0.15f, -0.22f, 0.95f);
+    float3 vmin = float3(-0.15f, -0.22f, 0.75f);
 
-    float3 vmax = float3(0.15f, 0.08f, 1.25f);
+    float3 vmax = float3(0.15f, 0.08f, 1.05f);
 
     float3 boxSize = abs(vmax - vmin);
 
@@ -632,12 +632,12 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 
 bool occupied(float m, float n) {
     //return true;
-    //return m > 0;
+    return m > 0;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
-    float p1 = 0.05; // Prior probability that any voxel is occupied
-    float T = 0.95; // Probabilitzy threshold to decide that voxel is occupied
+    float p1 = 0.1; // Prior probability that any voxel is occupied
+    float T = 0.9; // Probability threshold to decide that voxel is occupied
     float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
     return probablisticOccupancy > T;
 }
