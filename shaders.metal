@@ -42,7 +42,7 @@ constant float3 vmax = float3(0.15f, 0.08f, 1.05f);
 
 constant float3 boxSize = abs(vmax - vmin);
 
-constant float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+constant float3 voxelCount = float3(80.0f, 80.0f, 80.0f);
 
 float rayBoxIntersection(float3 origin, float3 direction)
 {
@@ -465,7 +465,7 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
             
             float3 boxSize = abs(vmax - vmin);
 
-            float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+            float3 voxelCount = float3(80.0f, 80.0f, 80.0f);
             
             //ins[0] = (vmin.x - ray.origin.x) / ray.direction.x;
             if (tmin < 0) tmin = 0;
@@ -564,7 +564,7 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 
     float3 boxSize = abs(vmax - vmin);
 
-    float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+    float3 voxelCount = float3(80.0f, 80.0f, 80.0f);
     
     uint vertexIndex = uint(index) * 8; // 8 vertices in a cube
     uint indiceIndex = uint(index) * 36; // 12 triangles in a cube triangle strip, 3 indices per strip
@@ -663,7 +663,7 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
     uint x = gid.x;
     uint y = gid.y;
     uint z = gid.z;
-    float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+    float3 voxelCount = float3(80.0f, 80.0f, 80.0f);
     if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for thread vals to be larger than our bounds
         return;
     }
@@ -690,7 +690,7 @@ kernel void addInsOuts(          device uint *insTemp [[buffer(0)]],
     uint x = gid.x;
     uint y = gid.y;
     uint z = gid.z;
-    float3 voxelCount = float3(30.0f, 30.0f, 30.0f);
+    float3 voxelCount = float3(80.0f, 80.0f, 80.0f);
     if (x >= uint(voxelCount.x) || y >= uint(voxelCount.y) || z >= uint(voxelCount.z)) { // chance for thread vals to be larger than our bounds
         return;
     }

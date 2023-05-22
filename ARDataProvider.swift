@@ -63,7 +63,7 @@ final class ARProvider: ARDataReceiver {
     let origColorHeight = 1440
     
     // Set voxel details.
-    let voxelsPerSide = 30
+    let voxelsPerSide = 80
     let vertCount: Int! // TODO: not make magic number later, doesn't port over to Metal version
     let vertsPerVoxel = 8
     let indicesPerVoxel = 36
@@ -442,7 +442,8 @@ final class ARProvider: ARDataReceiver {
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
         computeEncoder.setComputePipelineState(populateVoxelPipeline!)
         let threadgroupSize = MTLSizeMake(16, 16, 1)
-        let threadgroupCount = MTLSize(width: 2, height: 2, depth: 30)
+        let threadgroupCount = MTLSize(width: Int(ceil(Float(voxelsPerSide) / Float(threadgroupSize.width))),
+                                       height: Int(ceil(Float(voxelsPerSide) / Float(threadgroupSize.height))), depth: voxelsPerSide)
         computeEncoder.setBuffer(vertBuffer, offset: 0, index: 0)
         computeEncoder.setBuffer(indBuffer, offset: 0, index: 1)
         computeEncoder.setBuffer(voxelIns, offset: 0, index: 2)
@@ -453,21 +454,16 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         var count = 0
-        for i in 0..<(30*30*30) {
+        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
             let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
             let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
             if occupancy[0] > 0.95 {
-                let inPtr = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
-                let inVert = inPtr.assumingMemoryBound(to: UInt32.self).pointee
-                if inVert != 0 {
-                    print("I: " + String(i))
-                    print(occupancy)
-                    count = count + 1
-                }
+                print("I: " + String(i))
+                print(occupancy)
             }
         }
-        print("count")
-        print(count)
+//        print("count")
+//        print(count)
 //        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
 //        print("wc")
 //        print(worldCoords)
@@ -550,7 +546,17 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.endEncoding()
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
-        
+//        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
+//            let vertexPointer = voxelInsTemp.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+//            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
+//            let vertexPointerT = voxelOutsTemp.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
+//            let vertT = vertexPointerT.assumingMemoryBound(to: UInt32.self).pointee
+//            if vert != 0 || vertT != 0 {
+//                print("I: " + String(i))
+//                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
+//                print(vertT)
+//            }
+//        }
         // do m + n count
         guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
         guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
@@ -558,7 +564,8 @@ final class ARProvider: ARDataReceiver {
         threadsPerThreadgroup = MTLSizeMake(16, 16, 1)
         threadsHeight = threadsPerThreadgroup.height
         threadsWidth = threadsPerThreadgroup.width
-        threadgroups = MTLSize(width: 2, height: 2, depth: 30)
+        threadgroups = MTLSize(width: Int(ceil(Float(voxelsPerSide) / Float(threadsPerThreadgroup.width))),
+                               height: Int(ceil(Float(voxelsPerSide) / Float(threadsPerThreadgroup.height))), depth: voxelsPerSide)
 
         // debug, look at ray data
         computeEncoder.setBuffer(voxelInsTemp, offset: 0, index: 0)
@@ -573,14 +580,6 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         print("done")
-//        for i in 0..<(30*30*30) {
-//            let vertexPointer = voxelIns.contents().advanced(by: (MemoryLayout<UInt32>.stride * Int(i)))
-//            let vert = vertexPointer.assumingMemoryBound(to: UInt32.self).pointee
-//            if vert != 0 {
-//                print("I: " + String(i))
-//                print(vertexPointer.assumingMemoryBound(to: UInt32.self).pointee)
-//            }
-//        }
         
     }
     // Save a reference to the current AR data and process it.

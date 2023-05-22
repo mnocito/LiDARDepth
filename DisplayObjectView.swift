@@ -68,7 +68,7 @@ struct DisplayObjectView : UIViewRepresentable {
         let node = SCNNode(geometry: geometry)
         //node.position = SCNVector3(x: 0, y: 0, z: -0.25)
         scene.rootNode.addChildNode(node)
-//        for i in 0..<(30*30*30) {
+//        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
 //            let vertexPointer = vertBuffer.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
 //            let vert = vertexPointer.assumingMemoryBound(to: simd_float3.self).pointee
 //            if vert[0] != 0 || vert[1] != 0 || vert[2] != 0 {
