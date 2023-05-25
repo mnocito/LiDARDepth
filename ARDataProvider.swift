@@ -457,7 +457,7 @@ final class ARProvider: ARDataReceiver {
         for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
             let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
             let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
-            if occupancy[0] > 0.95 {
+            if /*occupancy[0] > 0.95 &&*/ occupancy[2] > 0 {
                 print("I: " + String(i))
                 print(occupancy)
             }
@@ -470,6 +470,7 @@ final class ARProvider: ARDataReceiver {
     }
     
     func rayTraceLastFrame() {
+        //print(origDepthWidth, origDepthHeight)
         var cameraIntrinsics = ShadowMasks.last!.cameraIntrinsics
         var lastWorldCoords = LightSources.last!.worldCoords
         let scaleRes = simd_float2(x: Float(lastArData!.cameraResolution.width) / Float(origDepthWidth),

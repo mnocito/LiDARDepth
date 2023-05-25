@@ -93,7 +93,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
     func session(_ session: ARSession, didUpdate frame: ARFrame) {
         if(frame.sceneDepth != nil) && (frame.smoothedSceneDepth != nil) {
             isReconstructing = true
-            arData.depthImage = frame.sceneDepth?.depthMap
+            arData.depthImage = frame.smoothedSceneDepth?.depthMap//frame.sceneDepth?.depthMap
             arData.depthSmoothImage = frame.smoothedSceneDepth?.depthMap
             arData.confidenceImage = frame.sceneDepth?.confidenceMap
             arData.confidenceSmoothImage = frame.smoothedSceneDepth?.confidenceMap
