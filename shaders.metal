@@ -354,6 +354,9 @@ kernel void getShadowMask(
         }
     } else {
         uint border = 5;
+        if (shadowMask.get_width() < 500) {
+            border = 2;
+        }
         if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yLeft - border && gid.y < yLeft + sideLen + border)) ||
             ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yRight - border && gid.y < yRight + sideLen + border)) ||
             ((half(localGidy) < topslope * half(localGidx) && half(localGidy) > topslope * half(localGidx) - border) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
