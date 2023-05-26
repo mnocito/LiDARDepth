@@ -330,30 +330,34 @@ kernel void getShadowMask(
                                                   constant float &max [[buffer(1)]],
                                                   constant uint &xMin [[buffer(2)]],
                                                   constant uint &xMax [[buffer(3)]],
-                                                  constant uint &yMin [[buffer(4)]],
-                                                  constant uint &yMax [[buffer(5)]],
+                                                  constant uint &yLeft [[buffer(4)]],
+                                                  constant uint &yRight [[buffer(5)]],
+                                                  constant uint &sideLen [[buffer(6)]],
                                                   uint2 gid [[thread_position_in_grid]]
                                                   )
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half grayVal = dot(rgbResult, kRec709Luma);
-//    if (gid.x > colorRGBTexture.get_width()/2 && gid.y > 509 && gid.y < 520) {
-//        shadowMask.write(white, uint2(gid.xy));
-//    } else {
-//        shadowMask.write(black, uint2(gid.xy));
-//    }
-    if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax) { //
-        if (grayVal > half(min) && grayVal < half(max)) {
+
+    uint yMin = metal::min(yLeft, yRight);
+    uint yMax = metal::max(yLeft, yRight) + sideLen;
+    int localGidx = gid.x - xMin;
+    int localGidy = gid.y - yLeft;
+    half topslope = (half(yRight) - half(yLeft)) / (half(xMax) - half(xMin));
+    if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax &&
+        half(localGidy) > topslope * half(localGidx) && half(localGidy) < topslope * half(localGidx) + half(sideLen)) { //
+        //half bottomslope = (half(yMin) - half(yMinLeft)) / (half(xMax) - half(xMin));
+        if (grayVal > half(min) && grayVal) {
             shadowMask.write(white, uint2(gid.xy));
         } else {
             shadowMask.write(black, uint2(gid.xy));
         }
     } else {
         uint border = 5;
-        if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yMin - border && gid.y < yMax + border)) ||
-            ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yMin - border && gid.y < yMax + border)) ||
-            ((gid.y < yMin && gid.y > yMin - border) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
-            ((gid.y > yMax && gid.y < yMax + border) && ( gid.x > xMin - border && gid.x < xMax + border)))  {
+        if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yLeft - border && gid.y < yLeft + sideLen + border)) ||
+            ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yRight - border && gid.y < yRight + sideLen + border)) ||
+            ((half(localGidy) < topslope * half(localGidx) && half(localGidy) > topslope * half(localGidx) - border) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
+            ((half(localGidy) > topslope * half(localGidx) + sideLen && half(localGidy) < topslope * half(localGidx) + sideLen + border) && ( gid.x > xMin - border && gid.x < xMax + border)))  {
             shadowMask.write(red, uint2(gid.xy));
         } else  {
             shadowMask.write(gray, uint2(gid.xy));
@@ -634,7 +638,7 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 
 bool occupied(float m, float n) {
     //return true;
-    return n > 0;
+    //return n > 0;
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty

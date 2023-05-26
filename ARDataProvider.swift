@@ -76,7 +76,8 @@ final class ARProvider: ARDataReceiver {
     var xMin: simd_float1 = 960
     var xMax: simd_float1 = 1920 - 10
     var yMin: simd_float1 = 0 + 10
-    var yMax: simd_float1 = 1440 - 10
+    var yMax: simd_float1 = 0 + 10
+    var sideLen: simd_float1 = 700
     var blurSigma: Float = 5
     var calibrateMask = false
     
@@ -141,6 +142,7 @@ final class ARProvider: ARDataReceiver {
         var xMaxInt = UInt32(xMax/7.5)
         var yMinInt = UInt32(yMin/7.5)
         var yMaxInt = UInt32(yMax/7.5)
+        var sideLenInt = UInt32(sideLen/7.5)
         computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
         computeEncoder.setTexture(colorRGBTextureBlurredDownscaled, index: 0)
         computeEncoder.setTexture(maskTextureDownscaled, index: 1)
@@ -150,6 +152,7 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.setBytes(&xMaxInt, length: MemoryLayout<UInt32>.stride, index: 3)
         computeEncoder.setBytes(&yMinInt, length: MemoryLayout<UInt32>.stride, index: 4)
         computeEncoder.setBytes(&yMaxInt, length: MemoryLayout<UInt32>.stride, index: 5)
+        computeEncoder.setBytes(&sideLenInt, length: MemoryLayout<UInt32>.stride, index: 6)
         let threadgroupSize = MTLSizeMake(RGBToMaskPipelineComputeState!.threadExecutionWidth,
                                           RGBToMaskPipelineComputeState!.maxTotalThreadsPerThreadgroup / RGBToMaskPipelineComputeState!.threadExecutionWidth, 1)
         let threadgroupCount = MTLSize(width: Int(ceil(Float(origDepthWidth) / Float(threadgroupSize.width))),
@@ -629,6 +632,7 @@ final class ARProvider: ARDataReceiver {
             var xMaxInt = UInt32(xMax)
             var yMinInt = UInt32(yMin)
             var yMaxInt = UInt32(yMax)
+            var sideLenInt = UInt32(sideLen)
             guard let computeEncoder = cmdBuffer.makeComputeCommandEncoder() else { return }
             computeEncoder.setComputePipelineState(RGBToMaskPipelineComputeState!)
             computeEncoder.setTexture(colorRGBTextureBlurred, index: 0)
@@ -639,6 +643,7 @@ final class ARProvider: ARDataReceiver {
             computeEncoder.setBytes(&xMaxInt, length: MemoryLayout<UInt32>.stride, index: 3)
             computeEncoder.setBytes(&yMinInt, length: MemoryLayout<UInt32>.stride, index: 4)
             computeEncoder.setBytes(&yMaxInt, length: MemoryLayout<UInt32>.stride, index: 5)
+            computeEncoder.setBytes(&sideLenInt, length: MemoryLayout<UInt32>.stride, index: 6)
             computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
             computeEncoder.endEncoding()
             cmdBuffer.commit()

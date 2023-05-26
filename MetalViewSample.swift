@@ -160,11 +160,15 @@ struct MetalDepthView: View {
                     Slider(value: $arProvider.xMin, in: 0...1920, step: 1.0)
                     Text("Max x value")
                     Slider(value: $arProvider.xMax, in: 0...1920, step: 1.0)
-                    Text("Min y value")
+                    Text("Lefy y value")
                     Slider(value: $arProvider.yMin, in: 0...1440, step: 1.0)
-                    Text("Max y value")
+                    Text("Right y value")
                     Slider(value: $arProvider.yMax, in: 0...1440, step: 1.0)
                     //Text(String(format: "%.3f", arProvider.minGray))
+                }.padding(.horizontal)
+                HStack {
+                    Text("Side len")
+                    Slider(value: $arProvider.sideLen, in: 0...1440, step: 1.0)
                 }.padding(.horizontal)
                 
             } else {
