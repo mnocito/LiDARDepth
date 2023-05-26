@@ -457,14 +457,14 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         var count = 0
-        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
-            let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
-            let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
-            if /*occupancy[0] > 0.95 &&*/ occupancy[2] > 0 {
-                print("I: " + String(i))
-                print(occupancy)
-            }
-        }
+//        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
+//            let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
+//            let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
+//            if /*occupancy[0] > 0.95 &&*/ occupancy[2] > 0 {
+//                print("I: " + String(i))
+//                print(occupancy)
+//            }
+//        }
 //        print("count")
 //        print(count)
 //        let worldCoords = floatBuff.contents().load(as: simd_float3.self)

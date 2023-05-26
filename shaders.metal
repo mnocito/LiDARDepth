@@ -321,7 +321,7 @@ constant half3 kRec709Luma = half3(0.2126, 0.7152, 0.0722);
 constant half4 white = half4(1.0h, 1.0h, 1.0h, 1.0h);
 constant half4 black = half4(0.0h, 0.0h, 0.0h, 1.0h);
 constant half4 red = half4(1.0h, 0.0h, 0.0h, 1.0h);
-constant half4 gray = half4(0.0h, 0.001h, 0.001h, 1.0h);
+constant half4 gray = half4(0.0h, 0.5h, 0.001h, 1.0h);
 
 kernel void getShadowMask(
                                                   texture2d<float, access::read> colorRGBTexture [[ texture(0) ]],
@@ -338,16 +338,23 @@ kernel void getShadowMask(
 {
     half3 rgbResult = half3(colorRGBTexture.read(gid).rgb);
     half grayVal = dot(rgbResult, kRec709Luma);
-
-    uint yMin = metal::min(yLeft, yRight);
-    uint yMax = metal::max(yLeft, yRight) + sideLen;
+    half topslope = (half(yRight) - half(yLeft)) / (half(xMax) - half(xMin));
     int localGidx = gid.x - xMin;
     int localGidy = gid.y - yLeft;
-    half topslope = (half(yRight) - half(yLeft)) / (half(xMax) - half(xMin));
+    half diff = abs(topslope * half(localGidx));
+    half leftDiff = 0;
+    half rightDiff = 0;
+    if (yLeft > yRight) {
+        leftDiff = 2.0 * diff;
+    } else {
+        rightDiff = - 2.0 * diff;
+    }
+    uint yMin = metal::min(yLeft, yRight);
+    uint yMax = metal::max(yLeft, yRight) + sideLen + 2.0 * diff;
     if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax &&
-        half(localGidy) > topslope * half(localGidx) && half(localGidy) < topslope * half(localGidx) + half(sideLen)) { //
+        half(localGidy) > topslope * half(localGidx) + leftDiff && half(localGidy) < half(1.15) * topslope * half(localGidx) + half(sideLen) + .75 * rightDiff) { //
         //half bottomslope = (half(yMin) - half(yMinLeft)) / (half(xMax) - half(xMin));
-        if (grayVal > half(min) && grayVal) {
+        if (grayVal > half(min) && grayVal < half(max)) {
             shadowMask.write(white, uint2(gid.xy));
         } else {
             shadowMask.write(black, uint2(gid.xy));
@@ -357,10 +364,10 @@ kernel void getShadowMask(
         if (shadowMask.get_width() < 500) {
             border = 2;
         }
-        if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yLeft - border && gid.y < yLeft + sideLen + border)) ||
-            ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yRight - border && gid.y < yRight + sideLen + border)) ||
-            ((half(localGidy) < topslope * half(localGidx) && half(localGidy) > topslope * half(localGidx) - border) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
-            ((half(localGidy) > topslope * half(localGidx) + sideLen && half(localGidy) < topslope * half(localGidx) + sideLen + border) && ( gid.x > xMin - border && gid.x < xMax + border)))  {
+        if (((gid.x < xMin && gid.x > xMin - border) && ( gid.y > yLeft - border && gid.y < yLeft + sideLen + border + rightDiff)) ||
+            ((gid.x > xMax && gid.x < xMax + border) && ( gid.y > yRight - border + leftDiff && gid.y < yRight + sideLen + border)) ||
+            ((half(localGidy) < topslope * half(localGidx) + leftDiff && half(localGidy) > topslope * half(localGidx) - border + leftDiff) && ( gid.x > xMin - border && gid.x < xMax + border)) ||
+            ((half(localGidy) > topslope * half(localGidx) + sideLen + rightDiff && half(localGidy) < topslope * half(localGidx) + sideLen + border + rightDiff) && ( gid.x > xMin - border && gid.x < xMax + border)))  {
             shadowMask.write(red, uint2(gid.xy));
         } else  {
             shadowMask.write(gray, uint2(gid.xy));
@@ -642,11 +649,11 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
 bool occupied(float m, float n) {
     //return true;
     //return n > 0;
-    float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
+    float eta = .1f; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
     float p1 = 0.1; // Prior probability that any voxel is occupied
-    float T = 0.9; // Probability threshold to decide that voxel is occupied
+    float T = 0.45; // Probability threshold to decide that voxel is occupied
     float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
     return probablisticOccupancy > T && n > 0.0f;
 }
