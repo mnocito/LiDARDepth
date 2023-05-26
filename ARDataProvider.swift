@@ -473,7 +473,7 @@ final class ARProvider: ARDataReceiver {
     }
     
     func rayTraceLastFrame() {
-        //print(origDepthWidth, origDepthHeight)
+        //print(origDepthWidth, origDepthHei ght)
         var cameraIntrinsics = ShadowMasks.last!.cameraIntrinsics
         var lastWorldCoords = LightSources.last!.worldCoords
         let scaleRes = simd_float2(x: Float(lastArData!.cameraResolution.width) / Float(origDepthWidth),
