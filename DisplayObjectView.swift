@@ -10,13 +10,15 @@ struct DisplayObjectView : UIViewRepresentable {
     let numVertices: Int!
     let numIndices: Int!
     var scnView: SCNView?
+    let cameraPos: simd_float3!
     
-    init(session: ARSession!, vBuffer: MTLBuffer!, iBuffer: MTLBuffer!, numVerts: Int!, numInds: Int!) {
+    init(session: ARSession!, vBuffer: MTLBuffer!, iBuffer: MTLBuffer!, numVerts: Int!, numInds: Int!, camPos: simd_float3!) {
         arSession = session
         vertBuffer = vBuffer
         indBuffer = iBuffer
         numVertices = numVerts
         numIndices = numInds
+        cameraPos = camPos
     }
     func makeUIView(context: Context) -> SCNView {
 
@@ -66,7 +68,6 @@ struct DisplayObjectView : UIViewRepresentable {
         geometry.firstMaterial?.diffuse.contents = UIColor.white
         geometry.firstMaterial?.specular.contents = UIColor(white: 0.6, alpha: 1.0)
         let node = SCNNode(geometry: geometry)
-        //node.position = SCNVector3(x: 0, y: 0, z: -0.25)
         scene.rootNode.addChildNode(node)
 //        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
 //            let vertexPointer = vertBuffer.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
@@ -79,6 +80,8 @@ struct DisplayObjectView : UIViewRepresentable {
 
         let scnView = ARSCNView()
         scnView.session = arSession
+        print(cameraPos)
+        //node.position.z += -0.25
         return scnView
     }
 

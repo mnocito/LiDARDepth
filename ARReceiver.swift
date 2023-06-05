@@ -25,6 +25,7 @@ final class ARData {
     var confidenceSmoothImage: CVPixelBuffer?
     var cameraIntrinsics = simd_float3x3()
     var cameraResolution = CGSize()
+    var cameraPos = simd_float3()
 }
 
 // Configure and run an AR session to provide the app with depth-related AR data.
@@ -100,6 +101,7 @@ final class ARReceiver: NSObject, ARSessionDelegate {
             arData.colorImage = frame.capturedImage
             arData.cameraIntrinsics = frame.camera.intrinsics
             arData.cameraResolution = frame.camera.imageResolution
+            arData.cameraPos = simd_float3(frame.camera.transform.columns.3.x, frame.camera.transform.columns.3.y, frame.camera.transform.columns.3.z)
             delegate?.onNewARData(arData: arData)
             
         }

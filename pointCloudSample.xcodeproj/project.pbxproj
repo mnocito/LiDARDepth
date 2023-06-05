@@ -21,8 +21,8 @@
 		723F2AAD29CCFBEA002E1B1F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */; };
 		727FBD7129CD24AE00A7BFEA /* shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 727FBD7029CD24AE00A7BFEA /* shaders.metal */; };
 		72C3DCAE2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72C3DCAD2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift */; };
-		72EC956A2A0AB255006FA848 /* MTKCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72EC95692A0AB255006FA848 /* MTKCoordinator.swift */; };
 		72EC956B2A13595E006FA848 /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 720B123529CD27050016AFAC /* Info.plist */; };
+		B1E9A6B82A24537800BCA9A7 /* MTKCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1E9A6B72A24537800BCA9A7 /* MTKCoordinator.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,9 +41,9 @@
 		723F2A9F29CCFBEA002E1B1F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		727FBD7029CD24AE00A7BFEA /* shaders.metal */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.metal; path = shaders.metal; sourceTree = "<group>"; };
 		72C3DCAD2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalTextureCalibrateMask.swift; sourceTree = "<group>"; };
-		72EC95692A0AB255006FA848 /* MTKCoordinator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MTKCoordinator.swift; path = ../pointCloudSample/MTKCoordinator.swift; sourceTree = "<group>"; };
 		762CB549210F49954E02A215 /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
 		9F60FDDEE7A7673198CD3F7A /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
+		B1E9A6B72A24537800BCA9A7 /* MTKCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MTKCoordinator.swift; sourceTree = "<group>"; };
 		E4DF0AFE24CF1A1A0024833B /* pointCloudSample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = pointCloudSample.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -77,7 +77,7 @@
 		E4DF0AF524CF1A1A0024833B = {
 			isa = PBXGroup;
 			children = (
-				72EC95692A0AB255006FA848 /* MTKCoordinator.swift */,
+				B1E9A6B72A24537800BCA9A7 /* MTKCoordinator.swift */,
 				72C3DCAD2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift */,
 				7205674D29F8B7E7001D16CB /* DisplayObjectView.swift */,
 				720B123629CD27380016AFAC /* MetalStructs.swift */,
@@ -179,13 +179,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				723F2AA329CCFBEA002E1B1F /* MetalViewSample.swift in Sources */,
-				72EC956A2A0AB255006FA848 /* MTKCoordinator.swift in Sources */,
 				720B123729CD27380016AFAC /* MetalStructs.swift in Sources */,
 				723F2AAA29CCFBEA002E1B1F /* EnvironmentVariables.swift in Sources */,
 				7205674E29F8B7E7001D16CB /* DisplayObjectView.swift in Sources */,
 				723F2AAB29CCFBEA002E1B1F /* MetalTextureViewDepth.swift in Sources */,
 				723F2AAC29CCFBEA002E1B1F /* ARDataProvider.swift in Sources */,
 				72C3DCAE2A046ACA00EE0C66 /* MetalTextureCalibrateMask.swift in Sources */,
+				B1E9A6B82A24537800BCA9A7 /* MTKCoordinator.swift in Sources */,
 				723F2AA429CCFBEA002E1B1F /* MetalPointCloud.swift in Sources */,
 				723F2AA029CCFBEA002E1B1F /* PointCloudDepthSample.swift in Sources */,
 				727FBD7129CD24AE00A7BFEA /* shaders.metal in Sources */,
@@ -338,6 +338,7 @@
 				DEVELOPMENT_TEAM = AV6JP9JBU4;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = pointCloudSample/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Imaging Behind Occluders";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -349,7 +350,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 2;
 			};
 			name = Debug;
 		};
@@ -364,6 +365,7 @@
 				DEVELOPMENT_TEAM = AV6JP9JBU4;
 				ENABLE_PREVIEWS = YES;
 				INFOPLIST_FILE = pointCloudSample/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "Imaging Behind Occluders";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -374,7 +376,7 @@
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 2;
 			};
 			name = Release;
 		};

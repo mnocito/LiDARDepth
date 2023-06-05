@@ -36,9 +36,9 @@ struct Ray {
 };
 
 
-constant float3 vmin = float3(-0.15f, -0.15f, 0.75f);
+constant  float3 vmin = float3(-0.23f, -0.2f, 0.67f);
 
-constant float3 vmax = float3(0.15f, 0.15f, 1.05f);
+constant float3 vmax = float3(0.23f, 0.26f, 1.13f);
 
 constant float3 boxSize = abs(vmax - vmin);
 
@@ -341,25 +341,30 @@ kernel void getShadowMask(
     half topslope = (half(yRight) - half(yLeft)) / (half(xMax) - half(xMin));
     int localGidx = gid.x - xMin;
     int localGidy = gid.y - yLeft;
-    half diff = abs(topslope * half(localGidx));
+    half diff =  2.0 * abs(topslope * half(localGidx));
     half leftDiff = 0;
     half rightDiff = 0;
-    if (yLeft > yRight) {
-        leftDiff = 2.0 * diff;
-    } else {
-        rightDiff = - 2.0 * diff;
-    }
     uint yMin = metal::min(yLeft, yRight);
     uint yMax = metal::max(yLeft, yRight) + sideLen + 2.0 * diff;
-    if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax &&
-        half(localGidy) > topslope * half(localGidx) + leftDiff && half(localGidy) < half(1.15) * topslope * half(localGidx) + half(sideLen) + .75 * rightDiff) { //
+    if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax && yLeft <= yRight /*&&
+        half(localGidy) > topslope * half(localGidx)*/ && half(localGidy) < half(1.05) * topslope * half(localGidx) + half(sideLen) - .75 * diff) { //
         //half bottomslope = (half(yMin) - half(yMinLeft)) / (half(xMax) - half(xMin));
         if (grayVal > half(min) && grayVal < half(max)) {
             shadowMask.write(white, uint2(gid.xy));
         } else {
             shadowMask.write(black, uint2(gid.xy));
         }
+    } else if (gid.x > xMin & gid.x < xMax && gid.y > yMin && gid.y < yMax && yLeft > yRight &&
+               /*half(localGidy) > topslope * half(localGidx) &&*/ half(localGidy) < half(1.15) * topslope * half(localGidx) + half(sideLen) + diff) { //
+               //half bottomslope = (half(yMin) - half(yMinLeft)) / (half(xMax) - half(xMin));
+               if (grayVal > half(min) && grayVal < half(max)) {
+                   shadowMask.write(white, uint2(gid.xy));
+               } else {
+                   shadowMask.write(black, uint2(gid.xy));
+               }
     } else {
+        shadowMask.write(gray, uint2(gid.xy));
+        /*
         uint border = 5;
         if (shadowMask.get_width() < 500) {
             border = 2;
@@ -372,6 +377,7 @@ kernel void getShadowMask(
         } else  {
             shadowMask.write(gray, uint2(gid.xy));
         }
+         */
     }
 }
 
@@ -445,6 +451,7 @@ kernel void rayKernel(texture2d<float, access::read> depthTexture [[ texture(0) 
         ray.origin = startingPos;
         ray.origin.y = -ray.origin.y;
         ray.direction = /*normalize(float3(0.5, 0.5, 0.0001));*/normalize(maskWorldPos - startingPos);
+        ray.direction.y = -ray.direction.y;
         orig = ray.origin;
         dir = ray.direction;
         if (isWhite(rgbResult)) {
@@ -473,9 +480,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
         if (!isnan(tmin)) {
             
-            float3 vmin = float3(-0.15f, -0.15f, 0.75f);
+            float3 vmin = float3(-0.23f, -0.2f, 0.67f);
 
-            float3 vmax = float3(0.15f, 0.15f, 1.05f);
+            float3 vmax = float3(0.23f, 0.26f, 1.13f);
             
             float3 boxSize = abs(vmax - vmin);
 
@@ -572,9 +579,9 @@ kernel void intersect(device Ray *rays [[buffer(0)]],
 
 // create cube geometry
 void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
-    float3 vmin = float3(-0.15f, -0.15f, 0.75f);
+    float3 vmin = float3(-0.23f, -0.2f, 0.67f);
 
-    float3 vmax = float3(0.15f, 0.15f, 1.05f);
+    float3 vmax = float3(0.23f, 0.26f, 1.13f);
 
     float3 boxSize = abs(vmax - vmin);
 
@@ -646,21 +653,82 @@ void populateGeometryBuffersAtIndex(device float3 *vertexData, device uint *inde
     indexData[indiceIndex+35] = vertexIndex + 5;
 }
 
+// create cube geometry
+void clearGeometryBuffersAtIndex(device float3 *vertexData, device uint *indexData, float index) {
+
+    float3 voxelCount = float3(80.0f, 80.0f, 80.0f);
+    
+    uint vertexIndex = uint(index) * 8; // 8 vertices in a cube
+    uint indiceIndex = uint(index) * 36; // 12 triangles in a cube triangle strip, 3 indices per strip
+
+    vertexData[vertexIndex] = float3(0, 0, 0);
+    vertexData[vertexIndex+1] = float3(0, 0, 0);
+    vertexData[vertexIndex+2] = float3(0, 0, 0);
+    vertexData[vertexIndex+3] = float3(0, 0, 0);
+    // bottom 4 vertices
+    vertexData[vertexIndex+4] = float3(0, 0, 0);
+    vertexData[vertexIndex+5] = float3(0, 0, 0);
+    vertexData[vertexIndex+6] = float3(0, 0, 0);
+    vertexData[vertexIndex+7] = float3(0, 0, 0);
+    // bottom face
+    indexData[indiceIndex] = 0;
+    indexData[indiceIndex+1] = 0;
+    indexData[indiceIndex+2] = 0;
+    indexData[indiceIndex+3] = 0;
+    indexData[indiceIndex+4] = 0;
+    indexData[indiceIndex+5] = 0;
+    // left face
+    indexData[indiceIndex+6] = 0;
+    indexData[indiceIndex+7] = 0;
+    indexData[indiceIndex+8] = 0;
+    indexData[indiceIndex+9] = 0;
+    indexData[indiceIndex+10] = 0;
+    indexData[indiceIndex+11] = 0;
+    // right face
+    indexData[indiceIndex+12] = 0;
+    indexData[indiceIndex+13] = 0;
+    indexData[indiceIndex+14] = 0;
+    indexData[indiceIndex+15] = 0;
+    indexData[indiceIndex+16] = 0;
+    indexData[indiceIndex+17] = 0;
+    // top face
+    indexData[indiceIndex+18] = 0;
+    indexData[indiceIndex+19] = 0;
+    indexData[indiceIndex+20] = 0;
+    indexData[indiceIndex+21] = 0;
+    indexData[indiceIndex+22] = 0;
+    indexData[indiceIndex+23] = 0;
+    // front face
+    indexData[indiceIndex+24] = 0;
+    indexData[indiceIndex+25] = 0;
+    indexData[indiceIndex+26] = 0;
+    indexData[indiceIndex+27] = 0;
+    indexData[indiceIndex+28] = 0;
+    indexData[indiceIndex+29] = 0;
+    // back face
+    indexData[indiceIndex+30] = 0;
+    indexData[indiceIndex+31] = 0;
+    indexData[indiceIndex+32] = 0;
+    indexData[indiceIndex+33] = 0;
+    indexData[indiceIndex+34] = 0;
+    indexData[indiceIndex+35] = 0;
+}
+
 bool occupied(float m, float n) {
     //return true;
     //return n > 0;
-    float eta = .1f; // Probability occupied voxel is traced to illuminated region (miss probability)
+    float eta = .05; // Probability occupied voxel is traced to illuminated region (miss probability)
     float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
     float p0 = 0.9; // Prior probability that any voxel is empty
-    float p1 = 0.1; // Prior probability that any voxel is occupied
-    float T = 0.45; // Probability threshold to decide that voxel is occupied
+    float p1 = 0.1; // Prior probability that  any voxel is occupied
+    float T = 0.85; // Probability threshold to decide that voxel is occupied
     float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
-    return probablisticOccupancy > T && n > 0.0f;
+    return probablisticOccupancy > T;
 }
 
 float occupancy(float m, float n) {
     float eta = .1; // Probability occupied voxel is traced to illuminated region (miss probability)
-    float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm)
+    float xi = .5; // Probability that an empty voxel is traced to shadow (probability false alarm).
     float p0 = 0.9; // Prior probability that any voxel is empty
     float p1 = 0.1; // Prior probability that any voxel is occupied
     float probablisticOccupancy = p1*(pow(eta, m))*(pow((1.0-eta), n))/(p0*(pow((1.0-xi), m))*(pow(xi, n)) + p1*(pow(eta, m))*(pow((1.0-eta), n)));
@@ -691,6 +759,8 @@ kernel void samplePopulateVoxels(device float3 *vertexData [[buffer(0)]],
     occupancies[uint(index)] = float3(occupancy(m, n), m, n);
     if (occupied(m, n)) {
         populateGeometryBuffersAtIndex(vertexData, indexData, index);
+    } else {
+        clearGeometryBuffersAtIndex(vertexData, indexData, index);
     }
 }
 

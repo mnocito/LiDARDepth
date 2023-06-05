@@ -18,14 +18,12 @@ struct Texture<T: View>: ViewModifier {
     let title: String
     let view: T
     func body(content: Content) -> some View {
-        VStack {
-            Text(title).foregroundColor(Color.red)
+        HStack {
             // To display the same view in the navigation, reference the view
             // directly versus using the view's `content` property.
-            NavigationLink(destination: view.aspectRatio(CGSize(width: width, height: height), contentMode: .fill)) {
                 view.frame(maxWidth: width, maxHeight: height, alignment: .center)
                     .aspectRatio(CGSize(width: width, height: height), contentMode: .fill)
-            }
+            Text(title).foregroundColor(Color.red).rotationEffect(.degrees(90))
         }
     }
 }
@@ -85,10 +83,13 @@ struct MetalDepthView: View {
                             HStack() {
                                 Spacer()
                                 MetalTextureRGBImage(content: arProvider.colorRGB)
-                                    //.zoomOnTapModifier(height: sizeH, width: sizeW, title: "")
-                                    .aspectRatio(CGSize(width: sizeW, height: sizeH), contentMode: .fit)
+                                    .zoomOnTapModifier(height: sizeH, width: sizeW, title: "Camera view")
+                                    //.aspectRatio(CGSize(width: sizeW, height: sizeH), contentMode: .fit)
                                     .rotationEffect(.degrees(-90))
                                 Spacer()
+                                MetalTextureCalibrateMask(content: arProvider.colorRGBMasked)
+                                    .zoomOnTapModifier(height: CGFloat(floor(sizeH/2.3)), width: CGFloat(floor(sizeW/2.3)), title: "Mask view")
+                                    .rotationEffect(.degrees(-90))
                             }
                             HStack {
                                 Text("Frames captured: \(framesCaptured)")
@@ -117,7 +118,7 @@ struct MetalDepthView: View {
                                                 arProvider.populateVoxels()
                                                 showObject = true
                                             }) {
-                                                Text("Carve chosen frames")
+                                                Text("Carve captured frames")
                                             }.buttonStyle(.bordered)
                                 Button(action: {
                                                 //arProvider.populateVoxels()
@@ -135,7 +136,7 @@ struct MetalDepthView: View {
                             }) {
                                 Text("Back")
                             }.buttonStyle(.bordered)
-                DisplayObjectView(session: arProvider.arReceiver.arSession, vBuffer: arProvider.vertBuffer, iBuffer: arProvider.indBuffer, numVerts: arProvider.numVertices, numInds: arProvider.numIndices)
+                DisplayObjectView(session: arProvider.arReceiver.arSession, vBuffer: arProvider.vertBuffer, iBuffer: arProvider.indBuffer, numVerts: arProvider.numVertices, numInds: arProvider.numIndices, camPos: arProvider.lastArData!.cameraPos)
             } else if calibrateMask {
                 Button(action: {
                                 calibrateMask = false
@@ -169,6 +170,11 @@ struct MetalDepthView: View {
                 HStack {
                     Text("Side len")
                     Slider(value: $arProvider.sideLen, in: 0...1440, step: 1.0)
+                    Button(action: {
+                        arProvider.switchMaskSides()
+                                }) {
+                                    Text("Switch")
+                    }.buttonStyle(.bordered)
                 }.padding(.horizontal)
                 
             } else {

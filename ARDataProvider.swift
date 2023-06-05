@@ -72,12 +72,22 @@ final class ARProvider: ARDataReceiver {
     
     // Set min and max grayscale values for our mask
     var minGray: simd_float1 = 0.01
-    var maxGray: simd_float1 = 0.3
-    var xMin: simd_float1 = 960
-    var xMax: simd_float1 = 1920 - 10
-    var yMin: simd_float1 = 0 + 10
-    var yMax: simd_float1 = 0 + 10
-    var sideLen: simd_float1 = 700
+    var maxGray: simd_float1 = 0.4222
+    var xMin: simd_float1 = 15
+    var xMax: simd_float1 = 489
+    var yMin: simd_float1 = 15
+    var yMax: simd_float1 = 704
+    var sideLen: simd_float1 = 1313
+    var xMinL: simd_float1 = 15
+    var xMaxL: simd_float1 = 489
+    var yMinL: simd_float1 = 15
+    var yMaxL: simd_float1 = 704
+    var sideLenL: simd_float1 = 1313
+    var xMinR: simd_float1 = 1284
+    var xMaxR: simd_float1 = 1911
+    var yMinR: simd_float1 = 425
+    var yMaxR: simd_float1 = 62
+    var sideLenR: simd_float1 = 532
     var blurSigma: Float = 5
     var calibrateMask = false
     
@@ -457,14 +467,14 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         var count = 0
-//        for i in 0..<(voxelsPerSide*voxelsPerSide*voxelsPerSide) {
-//            let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
-//            let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
-//            if /*occupancy[0] > 0.95 &&*/ occupancy[2] > 0 {
-//                print("I: " + String(i))
-//                print(occupancy)
+//            for i in 0..<(self.voxelsPerSide*self.voxelsPerSide*self.voxelsPerSide) {
+//                let occupPointer = occupancies.contents().advanced(by: (MemoryLayout<simd_float3>.stride * Int(i)))
+//                let occupancy = occupPointer.assumingMemoryBound(to: simd_float3.self).pointee
+//                if /*occupancy[0] > 0.4 &&*/ occupancy[2] > 0 {
+//                    print("I: " + String(i))
+//                    print(occupancy)
+//                }
 //            }
-//        }
 //        print("count")
 //        print(count)
 //        let worldCoords = floatBuff.contents().load(as: simd_float3.self)
@@ -584,6 +594,9 @@ final class ARProvider: ARDataReceiver {
         cmdBuffer.commit()
         cmdBuffer.waitUntilCompleted()
         print("done")
+        //LightSources.removeLast()
+        //ShadowMasks.removeLast()
+        print("removed shadows and light source")
         
     }
     // Save a reference to the current AR data and process it.
@@ -593,6 +606,7 @@ final class ARProvider: ARDataReceiver {
     }
     func deleteFrameAtIndex(index: Int) {
         ShadowMasks.remove(at:index)
+        
         LightSources.remove(at:index)
         framesCaptured = framesCaptured - 1
     }
@@ -622,7 +636,7 @@ final class ARProvider: ARDataReceiver {
         computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
         computeEncoder.endEncoding()
         cmdBuffer.commit()
-        if calibrateMask {
+        if /*calibrateMask*/ true {
             blurKernel = MPSImageGaussianBlur(device: metalDevice, sigma: blurSigma)
             guard let cmdBuffer = commandQueue.makeCommandBuffer() else { return }
             blurKernel.encode(commandBuffer: cmdBuffer,
@@ -647,12 +661,38 @@ final class ARProvider: ARDataReceiver {
             computeEncoder.dispatchThreadgroups(threadgroupCount, threadsPerThreadgroup: threadgroupSize)
             computeEncoder.endEncoding()
             cmdBuffer.commit()
+            if calibrateMask {
+                print("mask params")
+                print(minGray)
+                print(maxGray)
+                print(xMinInt)
+                print(xMaxInt)
+                print(yMinInt)
+                print(yMaxInt)
+                print(sideLenInt)
+            }
         }
         // maybe don't need these lines
         colorRGB.texture = colorRGBTexture
         colorRGBMasked.texture = colorRGBMaskedTexture
     }
 
+    // workaround to perms errors in MetalViewSample
+    func switchMaskSides() {
+        if xMin == xMinL {
+            xMin = xMinR
+            xMax = xMaxR
+            yMin = yMinR
+            yMax = yMaxR
+            sideLen = sideLenR
+        } else {
+            xMin = xMinL
+            xMax = xMaxL
+            yMin = yMinL
+            yMax = yMaxL
+            sideLen = sideLenL
+        }
+    }
     // workaround to perms errors in MetalViewSample
     func toggleCalibrateMask() {
         calibrateMask = !calibrateMask
